@@ -3,6 +3,13 @@
 ## Project Overview
 CompliCal is a compliance deadline API for Australian and New Zealand businesses, providing government filing deadlines via REST API.
 
+## Progress Status
+- ✅ Phase 0: Skipped (MVP approach - validate with working product)
+- ✅ Phase 1.1: Foundational Setup - COMPLETE
+- ✅ Phase 1.2: Data Sourcing & Ingestion - COMPLETE
+- ✅ Phase 1.3: API Development & Deployment - COMPLETE
+- ⏳ Phase 1.4: Go-to-Market Prep - NEXT
+
 ## Key Architecture Decisions
 
 ### Technology Stack (LOCKED IN)
@@ -56,6 +63,55 @@ cd backend && npm run test     # Backend unit tests
 cd infrastructure
 npm run cdk deploy --all
 ```
+
+### API Testing
+```bash
+# Health check (no auth)
+curl https://i2wgl7t4za.execute-api.ap-south-1.amazonaws.com/dev/health
+
+# Deadlines endpoint (requires auth)
+curl -H "Authorization: Bearer <token>" https://i2wgl7t4za.execute-api.ap-south-1.amazonaws.com/dev/v1/au/ato/deadlines
+```
+
+## Phase 1.1 Accomplishments
+- Created TypeScript monorepo with npm workspaces
+- Set up CDK infrastructure with TypeScript
+- Deployed to AWS account 809555764832 in ap-south-1 (Mumbai)
+- Created DynamoDB table with GSIs for efficient querying
+- Deployed API Gateway with health check endpoint
+- API URL: https://rp1qwpmuy5.execute-api.ap-south-1.amazonaws.com/dev/
+
+## Phase 1.2 Accomplishments
+- Built backend package with TypeScript/ESM modules
+- Created ATO scraper using Playwright/Cheerio (static data for MVP)
+- Implemented Zod validation for data quality
+- Successfully seeded 22 ATO deadlines into DynamoDB
+- Created proper key structure for multiple access patterns:
+  - By deadline type: PK = "DEADLINE#BAS_QUARTERLY"
+  - By jurisdiction: GSI1PK = "JURISDICTION#AU"
+  - By date: GSI2PK = "DATE#2024-03"
+
+## Phase 1.3 Accomplishments
+- Restructured CDK into three separate stacks (Data, Auth, API)
+- Implemented Cognito User Pool with OAuth 2.0 machine-to-machine auth
+- Created Lambda handlers for deadlines API with query parameters
+- Built JWT authorizer for API Gateway authentication
+- Deployed complete REST API with proper routing
+- Successfully tested health and auth endpoints
+
+## Current State
+- Infrastructure: ✅ Deployed and operational (3 stacks)
+- Database: ✅ Populated with 22 real ATO deadlines
+- API Endpoints: ✅ Live at https://i2wgl7t4za.execute-api.ap-south-1.amazonaws.com/dev/
+- Authentication: ✅ Cognito OAuth 2.0 with JWT authorizer
+- Health Check: ✅ Working at /health endpoint
+- Deadlines API: ✅ Protected endpoint at /v1/au/ato/deadlines
+
+## Deployment Details
+- API Gateway ID: i2wgl7t4za
+- Cognito User Pool ID: ap-south-1_BtXXs77zt
+- Cognito Client ID: 64pq56h3al1l1r7ehfhflgujib
+- DynamoDB Table: complical-deadlines-dev
 
 ## Senior Cloud Architect Persona
 When providing advice, think like a principal engineer with 30 years experience. Focus on:

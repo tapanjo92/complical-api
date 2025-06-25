@@ -2,6 +2,8 @@
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { CompliCalStack } from '../lib/complical-stack';
+import { AuthStack } from '../lib/auth-stack';
+import { ApiStack } from '../lib/api-stack';
 
 const app = new cdk.App();
 
@@ -14,12 +16,35 @@ if (!envConfig) {
   throw new Error(`Environment ${targetEnv} not found in cdk.json context`);
 }
 
-// Create the main stack
-new CompliCalStack(app, `CompliCal-${targetEnv}`, {
-  env: {
-    account: envConfig.account || process.env.CDK_DEFAULT_ACCOUNT,
-    region: envConfig.region || process.env.CDK_DEFAULT_REGION,
-  },
+const env = {
+  account: envConfig.account || process.env.CDK_DEFAULT_ACCOUNT,
+  region: envConfig.region || process.env.CDK_DEFAULT_REGION,
+};
+
+// Create the data stack (DynamoDB)
+const dataStack = new CompliCalStack(app, `CompliCal-Data-${targetEnv}`, {
+  env,
   environment: targetEnv,
-  description: `CompliCal compliance deadline API - ${targetEnv} environment`,
+  description: `CompliCal data layer - ${targetEnv} environment`,
 });
+
+// Create the auth stack (Cognito)
+const authStack = new AuthStack(app, `CompliCal-Auth-${targetEnv}`, {
+  env,
+  environment: targetEnv,
+  description: `CompliCal authentication - ${targetEnv} environment`,
+});
+
+// Create the API stack
+const apiStack = new ApiStack(app, `CompliCal-Api-${targetEnv}`, {
+  env,
+  environment: targetEnv,
+  description: `CompliCal API layer - ${targetEnv} environment`,
+  userPool: authStack.userPool,
+  userPoolClient: authStack.userPoolClient,
+  deadlinesTable: dataStack.deadlinesTable,
+});
+
+// Add dependencies
+apiStack.addDependency(dataStack);
+apiStack.addDependency(authStack);

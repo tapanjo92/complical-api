@@ -1,0 +1,55 @@
+{
+  "deadlines": [
+    {
+      "type": "BAS_QUARTERLY",
+      "name": "Quarterly Business Activity Statement",
+      "description": "Lodge and pay GST for the quarter",
+      "periods": [
+        { "quarter": "Q2 FY24", "period": "Oct-Dec 2023", "dueDate": "2024-02-28" },
+        { "quarter": "Q3 FY24", "period": "Jan-Mar 2024", "dueDate": "2024-04-28" },
+        { "quarter": "Q4 FY24", "period": "Apr-Jun 2024", "dueDate": "2024-07-28" },
+        { "quarter": "Q1 FY25", "period": "Jul-Sep 2024", "dueDate": "2024-10-28" }
+      ],
+      "applicableTo": ["small_business", "gst_registered"],
+      "sourceUrl": "https://www.ato.gov.au/businesses-and-organisations/preparing-lodging-and-paying/business-activity-statements-bas/due-dates-for-lodging-and-paying"
+    },
+    {
+      "type": "PAYG_WITHHOLDING",
+      "name": "PAYG Withholding (Monthly)",
+      "description": "Remit tax withheld from employee wages",
+      "monthlyDueDay": 21,
+      "applicableTo": ["employers", "monthly_remitter"],
+      "sourceUrl": "https://www.ato.gov.au/businesses-and-organisations/hiring-and-paying-your-workers/payg-withholding/when-to-pay-payg-withholding"
+    },
+    {
+      "type": "SUPER_GUARANTEE",
+      "name": "Super Guarantee Contributions",
+      "description": "Pay superannuation for employees",
+      "periods": [
+        { "quarter": "Q2 FY24", "period": "Oct-Dec 2023", "dueDate": "2024-01-28" },
+        { "quarter": "Q3 FY24", "period": "Jan-Mar 2024", "dueDate": "2024-04-28" },
+        { "quarter": "Q4 FY24", "period": "Apr-Jun 2024", "dueDate": "2024-07-28" },
+        { "quarter": "Q1 FY25", "period": "Jul-Sep 2024", "dueDate": "2024-10-28" }
+      ],
+      "applicableTo": ["employers"],
+      "sourceUrl": "https://www.ato.gov.au/businesses-and-organisations/hiring-and-paying-your-workers/super-for-employers/super-guarantee-charge-dates-and-lodgment"
+    },
+    {
+      "type": "INCOME_TAX",
+      "name": "Company Income Tax Return",
+      "description": "Lodge annual company tax return",
+      "annualDueDate": "15 May (or later with tax agent)",
+      "applicableTo": ["companies"],
+      "sourceUrl": "https://www.ato.gov.au/businesses-and-organisations/preparing-lodging-and-paying/tax-returns/due-dates-for-lodging-tax-returns"
+    },
+    {
+      "type": "FBT",
+      "name": "Fringe Benefits Tax Return",
+      "description": "Lodge annual FBT return",
+      "annualDueDate": "2024-05-21",
+      "fbtYear": "2023-24",
+      "applicableTo": ["employers", "fbt_liable"],
+      "sourceUrl": "https://www.ato.gov.au/businesses-and-organisations/hiring-and-paying-your-workers/fringe-benefits-tax/lodging-and-paying-fbt"
+    }
+  ]
+}
