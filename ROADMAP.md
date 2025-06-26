@@ -58,21 +58,61 @@ This document outlines the phased development plan for the CompliCal API, from i
 *   **Task 1.3.4:** Write unit tests for the Lambda handler.
 *   **Task 1.3.5:** Set up a basic CI/CD pipeline using GitHub Actions to automatically test and deploy the SAM application.
 
-### Sub-Phase 1.4: Go-to-Market Prep
+### Sub-Phase 1.4: Production Readiness & Security Hardening
 
-*   **Task 1.4.1:** Create simple, clear API documentation with OpenAPI/Swagger.
-*   **Task 1.4.2:** Integrate Stripe for subscription billing (free tier + paid).
-*   **Task 1.4.3:** Implement API versioning (v1) from the start.
-*   **Task 1.4.4:** Set up basic landing page with developer portal.
-*   **Task 1.4.5:** Launch with existing design partners from Phase 0.
+**(Target: 1-2 Weeks) - CRITICAL BEFORE LAUNCH**
 
-### Sub-Phase 1.5: Monitoring & Reliability
+*   **Task 1.4.1:** Remove hardcoded AWS account ID from cdk.json - use environment variables.
+*   **Task 1.4.2:** Implement comprehensive test suite:
+    *   Unit tests for all Lambda handlers
+    *   Integration tests for API endpoints
+    *   Infrastructure tests with CDK assertions
+*   **Task 1.4.3:** Set up GitHub Actions CI/CD pipeline:
+    *   Automated testing on every PR
+    *   Deployment approval for production
+    *   Security scanning (npm audit, secrets detection)
+*   **Task 1.4.4:** Create environment configuration:
+    *   `.env.example` file with all required variables
+    *   Separate configs for dev/staging/prod
+*   **Task 1.4.5:** Implement cost optimization tags on all resources:
+    *   Environment: dev/staging/prod
+    *   Service: api/auth/data/scraper
+    *   CostCenter: engineering
+    *   Customer: tier-based allocation
+*   **Task 1.4.6:** Fix security issues:
+    *   Restrict CORS to specific domains
+    *   Add security headers (HSTS, X-Frame-Options, etc.)
+    *   Implement request rate limiting per API key
 
-*   **Task 1.5.1:** Configure CloudWatch alarms for API latency and error rates.
-*   **Task 1.5.2:** Implement data accuracy monitoring with daily reports.
-*   **Task 1.5.3:** Set up Sentry for error tracking and alerting.
-*   **Task 1.5.4:** Create runbooks for common operational issues.
-*   **Task 1.5.5:** Implement automated backup for DynamoDB tables.
+### Sub-Phase 1.5: Go-to-Market Prep
+
+*   **Task 1.5.1:** Create simple, clear API documentation with OpenAPI/Swagger.
+*   **Task 1.5.2:** Integrate Stripe for subscription billing (free tier + paid).
+*   **Task 1.5.3:** Build developer portal with Next.js (frontend package).
+*   **Task 1.5.4:** Set up basic landing page.
+*   **Task 1.5.5:** Launch with existing design partners from Phase 0.
+
+### Sub-Phase 1.6: Monitoring & Reliability
+
+*   **Task 1.6.1:** Configure CloudWatch alarms for API latency and error rates.
+*   **Task 1.6.2:** Implement data accuracy monitoring with daily reports.
+*   **Task 1.6.3:** Set up Sentry for error tracking and alerting.
+*   **Task 1.6.4:** Create runbooks for common operational issues.
+*   **Task 1.6.5:** Implement automated backup for DynamoDB tables.
+*   **Task 1.6.6:** Set up cost monitoring dashboards with tag-based filtering.
+
+---
+
+## Critical Technical Debt (Address Before Scaling)
+
+**(MUST DO before Phase 2)**
+
+*   **Testing Coverage:** Achieve minimum 80% code coverage
+*   **Docker Setup:** Local development environment matching production
+*   **Shared Package:** Extract common types and utilities
+*   **Frontend Package:** Implement basic developer portal
+*   **Secrets Management:** Move all secrets to AWS Secrets Manager
+*   **Multi-Environment:** Proper dev/staging/prod separation
 
 ---
 

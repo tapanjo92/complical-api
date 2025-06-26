@@ -85,14 +85,20 @@ export class ApiStack extends cdk.Stack {
         throttlingRateLimit: 100,
       },
       defaultCorsPreflightOptions: {
-        allowOrigins: apigateway.Cors.ALL_ORIGINS,
-        allowMethods: apigateway.Cors.ALL_METHODS,
+        allowOrigins: [
+          'http://localhost:3000',  // Local development
+          'https://complical.com',  // Production domain
+          'https://www.complical.com',
+          'https://app.complical.com',  // App subdomain
+        ],
+        allowMethods: ['GET', 'OPTIONS'],
         allowHeaders: [
           'Content-Type',
           'X-Amz-Date',
           'Authorization',
           'X-Api-Key',
         ],
+        maxAge: cdk.Duration.hours(1),
       },
     });
 

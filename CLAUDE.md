@@ -8,7 +8,17 @@ CompliCal is a compliance deadline API for Australian and New Zealand businesses
 - ✅ Phase 1.1: Foundational Setup - COMPLETE
 - ✅ Phase 1.2: Data Sourcing & Ingestion - COMPLETE
 - ✅ Phase 1.3: API Development & Deployment - COMPLETE
-- ⏳ Phase 1.4: Go-to-Market Prep - NEXT
+- ✅ Phase 1.4: Critical Fixes - COMPLETE
+  - Removed hardcoded AWS account ID
+  - Created unit tests (3/4 passing)
+  - Fixed CORS to restrict to specific domains
+  - Created .env.example file
+- ✅ Phase 1.5: Go-to-Market Prep - COMPLETE
+  - Created OpenAPI/Swagger documentation
+  - Integrated Stripe billing with subscription tiers
+  - Built Next.js frontend with landing page
+  - Created developer portal with dashboard and API key management
+- ⏳ Phase 1.6: Monitoring & Reliability - NEXT
 
 ## Key Architecture Decisions
 
@@ -99,6 +109,22 @@ curl -H "Authorization: Bearer <token>" https://i2wgl7t4za.execute-api.ap-south-
 - Deployed complete REST API with proper routing
 - Successfully tested health and auth endpoints
 
+## Phase 1.4 Accomplishments
+- Removed hardcoded AWS account ID from cdk.json for security
+- Created unit tests for Lambda handler (3/4 tests passing)
+- Fixed CORS configuration to restrict to specific domains
+- Created .env.example file for environment variables
+
+## Phase 1.5 Accomplishments
+- Created comprehensive OpenAPI/Swagger documentation
+- Built Stripe billing integration with three subscription tiers
+- Developed Next.js landing page with features and code examples
+- Built developer portal with:
+  - Dashboard showing API usage and subscription status
+  - API key management with create/revoke functionality
+  - Authentication pages with Cognito integration
+  - Responsive UI with Tailwind CSS
+
 ## Current State
 - Infrastructure: ✅ Deployed and operational (3 stacks)
 - Database: ✅ Populated with 22 real ATO deadlines
@@ -106,6 +132,10 @@ curl -H "Authorization: Bearer <token>" https://i2wgl7t4za.execute-api.ap-south-
 - Authentication: ✅ Cognito OAuth 2.0 with JWT authorizer
 - Health Check: ✅ Working at /health endpoint
 - Deadlines API: ✅ Protected endpoint at /v1/au/ato/deadlines
+- API Documentation: ✅ OpenAPI spec at /packages/backend/src/api/openapi.yaml
+- Billing Integration: ✅ Stripe handler with 3 tiers (Developer/Professional/Enterprise)
+- Frontend: ✅ Next.js app with landing page and developer portal
+- Developer Dashboard: ✅ Dashboard, API key management, login pages
 
 ## Deployment Details
 - API Gateway ID: i2wgl7t4za

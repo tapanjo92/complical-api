@@ -1,0 +1,298 @@
+openapi: 3.0.3
+info:
+  title: CompliCal API
+  description: |
+    A trusted, developer-first API for government and compliance deadlines in Australia and New Zealand.
+    
+    ## Authentication
+    
+    The CompliCal API uses OAuth 2.0 with the client credentials flow. To authenticate:
+    
+    1. Obtain your `client_id` and `client_secret` from the developer portal
+    2. Request an access token from our auth endpoint
+    3. Include the token in the `Authorization` header as `Bearer <token>`
+    
+    ## Rate Limits
+    
+    - Developer tier: 100 requests/minute
+    - Professional tier: 1000 requests/minute
+    - Enterprise tier: Custom limits
+    
+  version: 1.0.0
+  contact:
+    email: api@complical.com
+  license:
+    name: Commercial
+    url: https://complical.com/terms
+
+servers:
+  - url: https://api.complical.com/v1
+    description: Production
+  - url: https://i2wgl7t4za.execute-api.ap-south-1.amazonaws.com/dev/v1
+    description: Development
+
+security:
+  - BearerAuth: []
+
+paths:
+  /health:
+    get:
+      summary: Health Check
+      description: Check API health status
+      security: []  # No auth required
+      tags:
+        - System
+      responses:
+        '200':
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: healthy
+                  environment:
+                    type: string
+                    example: production
+                  timestamp:
+                    type: string
+                    format: date-time
+                  version:
+                    type: string
+                    example: 1.0.0
+
+  /au/ato/deadlines:
+    get:
+      summary: Get Australian Tax Office Deadlines
+      description: |
+        Retrieve compliance deadlines from the Australian Tax Office (ATO).
+        Results can be filtered by type, date range, and limited for pagination.
+      tags:
+        - Deadlines
+      parameters:
+        - name: type
+          in: query
+          description: Filter by deadline type
+          required: false
+          schema:
+            type: string
+            enum:
+              - BAS_QUARTERLY
+              - BAS_MONTHLY
+              - PAYG_WITHHOLDING
+              - SUPER_GUARANTEE
+              - INCOME_TAX
+              - FBT
+        - name: from_date
+          in: query
+          description: Start date for filtering (inclusive)
+          required: false
+          schema:
+            type: string
+            format: date
+            example: '2024-01-01'
+        - name: to_date
+          in: query
+          description: End date for filtering (inclusive)
+          required: false
+          schema:
+            type: string
+            format: date
+            example: '2024-12-31'
+        - name: limit
+          in: query
+          description: Maximum number of results to return
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deadlines:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Deadline'
+                  count:
+                    type: integer
+                    description: Number of deadlines returned
+                  filters:
+                    type: object
+                    properties:
+                      jurisdiction:
+                        type: string
+                        example: AU
+                      type:
+                        type: string
+                      dateRange:
+                        type: object
+                        properties:
+                          from:
+                            type: string
+                            format: date
+                          to:
+                            type: string
+                            format: date
+                  lastEvaluatedKey:
+                    type: object
+                    description: Pagination token for next page (if applicable)
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 access token
+
+  schemas:
+    Deadline:
+      type: object
+      required:
+        - id
+        - type
+        - name
+        - description
+        - jurisdiction
+        - agency
+        - dueDate
+        - period
+        - applicableTo
+        - sourceUrl
+        - lastUpdated
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the deadline
+          example: ATO_BAS_QUARTERLY_Q1_FY25
+        type:
+          type: string
+          description: Type of deadline
+          enum:
+            - BAS_QUARTERLY
+            - BAS_MONTHLY
+            - PAYG_WITHHOLDING
+            - SUPER_GUARANTEE
+            - INCOME_TAX
+            - FBT
+        name:
+          type: string
+          description: Human-readable name
+          example: Quarterly Business Activity Statement
+        description:
+          type: string
+          description: Detailed description of the deadline
+          example: Lodge and pay GST for the quarter
+        jurisdiction:
+          type: string
+          description: Country/jurisdiction code
+          enum: [AU, NZ]
+          example: AU
+        agency:
+          type: string
+          description: Government agency
+          enum: [ATO, IRD, ASIC, STATE_REVENUE]
+          example: ATO
+        dueDate:
+          type: string
+          format: date
+          description: Due date for the deadline
+          example: '2024-10-28'
+        period:
+          type: string
+          description: Period covered by the deadline
+          example: Q1 FY25
+        applicableTo:
+          type: array
+          items:
+            type: string
+          description: Who this deadline applies to
+          example: [small_business, gst_registered]
+        sourceUrl:
+          type: string
+          format: uri
+          description: Official source URL
+          example: https://www.ato.gov.au/businesses-and-organisations/preparing-lodging-and-paying/business-activity-statements-bas
+        lastUpdated:
+          type: string
+          format: date-time
+          description: When this data was last verified
+
+    Error:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: Error code
+        message:
+          type: string
+          description: Human-readable error message
+        details:
+          type: array
+          items:
+            type: object
+          description: Additional error details
+
+  responses:
+    BadRequest:
+      description: Invalid request parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: Invalid request parameters
+            message: The 'type' parameter must be one of the allowed values
+            details:
+              - field: type
+                message: Invalid enum value
+
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: Unauthorized
+            message: Invalid or missing authentication token
+
+    RateLimitExceeded:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: Rate limit exceeded
+            message: You have exceeded your rate limit. Please try again later.
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: Internal server error
+            message: An unexpected error occurred while processing your request

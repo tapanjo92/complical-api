@@ -29,11 +29,9 @@
     "projectName": "complical",
     "environments": {
       "dev": {
-        "account": "809555764832",
         "region": "ap-south-1"
       },
       "prod": {
-        "account": "809555764832",
         "region": "ap-south-1"
       }
     }
