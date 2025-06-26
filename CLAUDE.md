@@ -143,6 +143,38 @@ curl -H "Authorization: Bearer <token>" https://i2wgl7t4za.execute-api.ap-south-
 - Cognito Client ID: 64pq56h3al1l1r7ehfhflgujib
 - DynamoDB Table: complical-deadlines-dev
 
+## Frontend Deployment (2025-06-26)
+- **Deployment Method**: CloudFront + S3 (static export)
+- **CloudFront URL**: https://d2xoxkdqlbm2pj.cloudfront.net
+- **S3 Buckets**: 
+  - Frontend: `complical-frontend-dev-809555764832`
+  - Logs: `complical-frontend-logs-dev-809555764832`
+- **CloudFront Logging**: Enabled to S3 bucket with 30-day retention
+- **Status**: 🔄 UPDATING (fixing 403 error with S3Origin configuration)
+
+### Frontend Configuration
+- Next.js 14 with static export (`output: 'export'`)
+- CloudFront Origin Access Identity (OAI) for S3 access
+- Error pages redirect to index.html for client-side routing
+- Configuration loaded from `/config.js` at runtime
+
+### Recent Issues & Fixes
+1. **Amplify Deployment**: Initially attempted, removed per user request
+2. **403 Forbidden**: Fixed by updating S3Origin with OAI configuration
+3. **CloudFront Logging**: Fixed ACL issues with proper bucket policy
+4. **API Key Authorization (2025-06-26)**: 
+   - Issue: API keys returned 403 Forbidden even when valid
+   - Root cause: Keys weren't associated with usage plans due to CDK circular dependency
+   - Solution: Store usage plan ID in SSM Parameter Store, Lambda reads it to associate keys
+   - Script created: `/scripts/associate-api-keys.sh` to associate existing keys
+5. **Rate Limiting**: 
+   - Configured: 10 req/sec rate limit, 20 req burst, 10k/month quota
+   - All API keys now properly associated with free tier usage plan
+6. **User Authentication Flow**:
+   - Traditional email/password registration via Cognito
+   - JWT tokens for dashboard access (1 hour expiry)
+   - API keys for API access (no expiry unless manually revoked)
+
 ## Senior Cloud Architect Persona
 When providing advice, think like a principal engineer with 30 years experience. Focus on:
 - Pragmatic solutions over perfect ones

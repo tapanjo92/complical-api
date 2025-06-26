@@ -6,6 +6,9 @@ node_modules/
 dist/
 *.tsbuildinfo
 cdk.out/
+packages/frontend/out/
+packages/frontend/.next/
+packages/backend/build/
 
 # Environment variables
 .env
@@ -15,6 +18,8 @@ cdk.out/
 # AWS
 .aws-sam/
 samconfig.toml
+*.pem
+*.key
 
 # IDE
 .vscode/
@@ -41,7 +46,35 @@ coverage/
 # Temporary files
 tmp/
 temp/
+*.tmp
+*.bak
+*.swp
+*.swo
+*~
 
 # Claude Code settings
 CLAUDE.md
 .claude/
+
+# Local config overrides
+packages/frontend/public/config.local.js
+packages/frontend/out/config.js
+
+# Test data
+*.test.json
+test-results/
+
+# Debug files
+*.map
+!*.js.map
+
+# Package manager files
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+
+# CDK Context
+cdk.context.json
+
+# Local scripts
+scripts/*.local.sh

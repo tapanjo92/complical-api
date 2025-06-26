@@ -4,6 +4,7 @@ import * as cdk from 'aws-cdk-lib';
 import { CompliCalStack } from '../lib/complical-stack';
 import { AuthStack } from '../lib/auth-stack';
 import { ApiStack } from '../lib/api-stack';
+import { FrontendStack } from '../lib/frontend-stack';
 
 const app = new cdk.App();
 
@@ -43,8 +44,23 @@ const apiStack = new ApiStack(app, `CompliCal-Api-${targetEnv}`, {
   userPool: authStack.userPool,
   userPoolClient: authStack.userPoolClient,
   deadlinesTable: dataStack.deadlinesTable,
+  apiKeysTable: dataStack.apiKeysTable,
 });
 
 // Add dependencies
 apiStack.addDependency(dataStack);
 apiStack.addDependency(authStack);
+
+// Create the Frontend stack for S3/CloudFront hosting
+const frontendStack = new FrontendStack(app, `CompliCal-Frontend-${targetEnv}`, {
+  env,
+  environment: targetEnv,
+  description: `CompliCal frontend hosting - ${targetEnv} environment`,
+  apiUrl: apiStack.api.url,
+  cognitoRegion: env.region!,
+  userPoolId: authStack.userPool.userPoolId,
+  clientId: authStack.userPoolClient.userPoolClientId,
+});
+
+// Frontend depends on API being deployed
+frontendStack.addDependency(apiStack);

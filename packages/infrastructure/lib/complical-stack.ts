@@ -8,6 +8,7 @@ export interface CompliCalStackProps extends cdk.StackProps {
 
 export class CompliCalStack extends cdk.Stack {
   public readonly deadlinesTable: dynamodb.Table;
+  public readonly apiKeysTable: dynamodb.Table;
 
   constructor(scope: Construct, id: string, props: CompliCalStackProps) {
     super(scope, id, props);
@@ -61,10 +62,46 @@ export class CompliCalStack extends cdk.Stack {
       projectionType: dynamodb.ProjectionType.ALL,
     });
 
-    // Output the table name
-    new cdk.CfnOutput(this, 'TableName', {
+    // DynamoDB table for API keys
+    this.apiKeysTable = new dynamodb.Table(this, 'ApiKeysTable', {
+      tableName: `complical-api-keys-${props.environment}`,
+      partitionKey: {
+        name: 'id',
+        type: dynamodb.AttributeType.STRING,
+      },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      encryption: dynamodb.TableEncryption.AWS_MANAGED,
+      pointInTimeRecoverySpecification: {
+        pointInTimeRecoveryEnabled: true,
+      },
+      removalPolicy: props.environment === 'prod' 
+        ? cdk.RemovalPolicy.RETAIN 
+        : cdk.RemovalPolicy.DESTROY,
+    });
+
+    // GSI for querying by user email
+    this.apiKeysTable.addGlobalSecondaryIndex({
+      indexName: 'userEmail-createdAt-index',
+      partitionKey: {
+        name: 'userEmail',
+        type: dynamodb.AttributeType.STRING,
+      },
+      sortKey: {
+        name: 'createdAt',
+        type: dynamodb.AttributeType.STRING,
+      },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+
+    // Output the table names
+    new cdk.CfnOutput(this, 'DeadlinesTableName', {
       value: this.deadlinesTable.tableName,
       description: 'DynamoDB table name for compliance deadlines',
+    });
+
+    new cdk.CfnOutput(this, 'ApiKeysTableName', {
+      value: this.apiKeysTable.tableName,
+      description: 'DynamoDB table name for API keys',
     });
   }
 }

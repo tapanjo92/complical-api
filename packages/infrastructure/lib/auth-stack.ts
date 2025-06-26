@@ -57,7 +57,7 @@ export class AuthStack extends cdk.Stack {
     });
 
     // Create resource server for OAuth scopes
-    const resourceServer = new cognito.UserPoolResourceServer(this, 'ResourceServer', {
+    new cognito.UserPoolResourceServer(this, 'ResourceServer', {
       userPool: this.userPool,
       identifier: 'api',
       userPoolResourceServerName: 'CompliCal API',
@@ -73,24 +73,37 @@ export class AuthStack extends cdk.Stack {
       ],
     });
 
-    // Create User Pool Client for machine-to-machine auth
-    this.userPoolClient = new cognito.UserPoolClient(this, 'ApiClient', {
+    // Create User Pool Client for web app authentication
+    this.userPoolClient = new cognito.UserPoolClient(this, 'WebClient', {
       userPool: this.userPool,
-      userPoolClientName: `complical-api-client-${props.environment}`,
-      generateSecret: true,
+      userPoolClientName: `complical-web-client-${props.environment}`,
+      generateSecret: false, // No secret for web clients
       authFlows: {
-        adminUserPassword: false,
+        adminUserPassword: true,  // Enable admin auth for backend login
         custom: false,
-        userPassword: false,
-        userSrp: false,
+        userPassword: true,       // Enable user password auth
+        userSrp: true,           // Enable SRP for secure auth
       },
       oAuth: {
         flows: {
-          clientCredentials: true,
+          authorizationCodeGrant: true,
+          implicitCodeGrant: false,
         },
-        scopes: [cognito.OAuthScope.resourceServer(resourceServer, 
-          new cognito.ResourceServerScope({ scopeName: 'read', scopeDescription: 'Read access' })
-        )],
+        scopes: [
+          cognito.OAuthScope.EMAIL,
+          cognito.OAuthScope.OPENID,
+          cognito.OAuthScope.PROFILE,
+        ],
+        callbackUrls: [
+          'http://localhost:3000/auth/callback',
+          'https://complical.com/auth/callback',
+          'https://app.complical.com/auth/callback',
+        ],
+        logoutUrls: [
+          'http://localhost:3000',
+          'https://complical.com',
+          'https://app.complical.com',
+        ],
       },
       supportedIdentityProviders: [
         cognito.UserPoolClientIdentityProvider.COGNITO,

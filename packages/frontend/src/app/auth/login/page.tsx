@@ -1,15 +1,24 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
 export default function LoginPage() {
   const router = useRouter()
-  const [clientId, setClientId] = useState('')
-  const [clientSecret, setClientSecret] = useState('')
+  const searchParams = useSearchParams()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [showSuccess, setShowSuccess] = useState(false)
+
+  useEffect(() => {
+    if (searchParams.get('registered') === 'true') {
+      setShowSuccess(true)
+      setTimeout(() => setShowSuccess(false), 5000)
+    }
+  }, [searchParams])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -17,38 +26,32 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      // Exchange client credentials for access token
-      const tokenEndpoint = `https://auth.complical.com/oauth2/token`
-      
-      const response = await fetch(tokenEndpoint, {
+      // Authenticate user with email/password
+      const response = await fetch(`${window.COMPLICAL_CONFIG?.API_URL || ''}/v1/auth/login`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
+          'Content-Type': 'application/json',
         },
-        body: new URLSearchParams({
-          grant_type: 'client_credentials',
-          client_id: clientId,
-          client_secret: clientSecret,
-          scope: 'complical/read',
+        body: JSON.stringify({
+          email,
+          password,
         }),
       })
 
       if (!response.ok) {
-        throw new Error('Invalid credentials')
+        throw new Error('Invalid email or password')
       }
 
       const data = await response.json()
       
-      // Store tokens
-      localStorage.setItem('auth_token', data.access_token)
-      if (data.refresh_token) {
-        localStorage.setItem('refresh_token', data.refresh_token)
-      }
+      // Store user token
+      localStorage.setItem('auth_token', data.token)
+      localStorage.setItem('user_email', email)
 
       // Redirect to dashboard
       router.push('/dashboard')
     } catch (err) {
-      setError('Invalid client credentials. Please check and try again.')
+      setError('Invalid email or password. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -71,38 +74,47 @@ export default function LoginPage() {
             </Link>
           </p>
         </div>
+
+        {showSuccess && (
+          <div className="rounded-md bg-green-50 p-4">
+            <p className="text-sm text-green-800">
+              Account created successfully! Please sign in.
+            </p>
+          </div>
+        )}
+
         <form className="mt-8 space-y-6" onSubmit={handleLogin}>
           <div className="rounded-md shadow-sm -space-y-px">
             <div>
-              <label htmlFor="client-id" className="sr-only">
-                Client ID
+              <label htmlFor="email" className="sr-only">
+                Email address
               </label>
               <input
-                id="client-id"
-                name="client-id"
-                type="text"
-                autoComplete="username"
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
                 required
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-black focus:border-black focus:z-10 sm:text-sm"
-                placeholder="Client ID"
-                value={clientId}
-                onChange={(e) => setClientId(e.target.value)}
+                placeholder="Email address"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
               />
             </div>
             <div>
-              <label htmlFor="client-secret" className="sr-only">
-                Client Secret
+              <label htmlFor="password" className="sr-only">
+                Password
               </label>
               <input
-                id="client-secret"
-                name="client-secret"
+                id="password"
+                name="password"
                 type="password"
                 autoComplete="current-password"
                 required
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-black focus:border-black focus:z-10 sm:text-sm"
-                placeholder="Client Secret"
-                value={clientSecret}
-                onChange={(e) => setClientSecret(e.target.value)}
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
               />
             </div>
           </div>
@@ -124,12 +136,9 @@ export default function LoginPage() {
           </div>
 
           <div className="text-center text-sm">
-            <p className="text-gray-600">
-              Don't have client credentials?{' '}
-              <Link href="/auth/register" className="font-medium text-black hover:underline">
-                Register for an API account
-              </Link>
-            </p>
+            <Link href="/auth/forgot-password" className="font-medium text-black hover:underline">
+              Forgot your password?
+            </Link>
           </div>
         </form>
       </div>

@@ -5,12 +5,11 @@ import Link from 'next/link'
 
 export default function LandingPage() {
   const [email, setEmail] = useState('')
-  const [subscribed, setSubscribed] = useState(false)
 
   const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault()
-    // TODO: Implement email subscription
-    setSubscribed(true)
+    // Redirect to registration page
+    window.location.href = '/auth/register'
   }
 
   return (
@@ -53,7 +52,7 @@ export default function LandingPage() {
             </p>
             <div className="flex justify-center space-x-4">
               <Link
-                href="/dashboard"
+                href="/auth/register"
                 className="bg-black text-white px-6 py-3 rounded-md text-lg hover:bg-gray-800"
               >
                 Get Started Free
@@ -115,7 +114,7 @@ const response = await fetch(
   'https://api.complical.com/v1/au/ato/deadlines?type=BAS_QUARTERLY',
   {
     headers: {
-      'Authorization': 'Bearer YOUR_API_TOKEN'
+      'X-Api-Key': 'YOUR_API_KEY'
     }
   }
 );
@@ -143,9 +142,9 @@ console.log(data.deadlines);
             Start Your Free Trial Today
           </h3>
           <p className="text-xl mb-8 text-gray-300">
-            Get 1,000 free API calls per month. No credit card required.
+            Get 10,000 free API calls per month. No credit card required.
           </p>
-          {!subscribed ? (
+          {(
             <form onSubmit={handleSubscribe} className="max-w-md mx-auto flex gap-4">
               <input
                 type="email"
@@ -162,10 +161,6 @@ console.log(data.deadlines);
                 Get Started
               </button>
             </form>
-          ) : (
-            <div className="text-green-400 text-lg">
-              ✓ Thanks! Check your email to get started.
-            </div>
           )}
         </div>
       </section>
