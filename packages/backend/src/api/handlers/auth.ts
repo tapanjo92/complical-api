@@ -22,7 +22,7 @@ const USER_POOL_CLIENT_ID = process.env.USER_POOL_CLIENT_ID!;
 const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
-  companyName: z.string().min(1),
+  companyName: z.string().min(1).optional(),
 });
 
 // Login schema
@@ -60,15 +60,20 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       const { email, password, companyName } = registerSchema.parse(body);
 
       // Create user in Cognito
+      const userAttributes = [
+        { Name: 'email', Value: email },
+        { Name: 'email_verified', Value: 'true' },
+        { Name: 'custom:tier', Value: 'free' },
+      ];
+      
+      if (companyName) {
+        userAttributes.push({ Name: 'custom:company', Value: companyName });
+      }
+      
       const createUserCommand = new AdminCreateUserCommand({
         UserPoolId: USER_POOL_ID,
         Username: email,
-        UserAttributes: [
-          { Name: 'email', Value: email },
-          { Name: 'email_verified', Value: 'true' },
-          { Name: 'custom:company', Value: companyName },
-          { Name: 'custom:tier', Value: 'free' },
-        ],
+        UserAttributes: userAttributes,
         MessageAction: MessageActionType.SUPPRESS, // Don't send welcome email
         TemporaryPassword: crypto.randomBytes(32).toString('base64'),
       });

@@ -95,8 +95,12 @@ export class ApiStack extends cdk.Stack {
         metricsEnabled: true,
         loggingLevel: apigateway.MethodLoggingLevel.INFO,
         dataTraceEnabled: props.environment !== 'prod',
-        throttlingBurstLimit: 1000,
-        throttlingRateLimit: 100,
+        methodOptions: {
+          '/*/*': {
+            throttlingRateLimit: 10,
+            throttlingBurstLimit: 20,
+          },
+        },
       },
       defaultCorsPreflightOptions: {
         allowOrigins: [
