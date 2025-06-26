@@ -1,4 +1,4 @@
-import { chromium, Browser, Page } from 'playwright';
+import { chromium, Browser } from 'playwright';
 import * as cheerio from 'cheerio';
 import { readFile } from 'fs/promises';
 import { join, dirname } from 'path';
@@ -124,11 +124,6 @@ export class ATOScraper {
     const page = await this.browser.newPage();
     
     try {
-      // Set user agent to avoid detection
-      await page.setUserAgent(
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-      );
-      
       await page.goto(url, {
         waitUntil: 'networkidle',
         timeout: 30000,

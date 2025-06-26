@@ -21,7 +21,6 @@ interface DynamoDBItem extends Deadline {
 }
 
 function createDynamoDBItem(deadline: Deadline): DynamoDBItem {
-  const dateObj = new Date(deadline.dueDate);
   const yearMonth = deadline.dueDate.substring(0, 7); // YYYY-MM
   
   return {

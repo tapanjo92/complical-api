@@ -71,6 +71,35 @@ export class ApiStack extends cdk.Stack {
     // Grant permissions
     props.deadlinesTable.grantReadData(deadlinesFn);
 
+    // Billing Lambda Function
+    const billingFn = new NodejsFunction(this, 'BillingFunction', {
+      functionName: `complical-billing-${props.environment}`,
+      entry: path.join(__dirname, '../../backend/src/api/handlers/billing.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 512,
+      environment: {
+        ENVIRONMENT: props.environment,
+        USER_POOL_ID: props.userPool.userPoolId,
+        STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || '',
+        STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET || '',
+        STRIPE_PRICE_DEVELOPER: process.env.STRIPE_PRICE_DEVELOPER || 'price_developer',
+        STRIPE_PRICE_PROFESSIONAL: process.env.STRIPE_PRICE_PROFESSIONAL || 'price_professional',
+        STRIPE_PRICE_ENTERPRISE: process.env.STRIPE_PRICE_ENTERPRISE || 'price_enterprise',
+        AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1',
+      },
+      bundling: {
+        externalModules: ['aws-sdk'],
+        minify: true,
+        sourceMap: true,
+      },
+      tracing: lambda.Tracing.ACTIVE,
+    });
+
+    // Grant Cognito permissions to billing function
+    props.userPool.grant(billingFn, 'cognito-idp:AdminCreateUser', 'cognito-idp:AdminAddUserToGroup');
+
     // Create API
     this.api = new apigateway.RestApi(this, 'CompliCalApi', {
       restApiName: `complical-api-${props.environment}`,
@@ -91,7 +120,7 @@ export class ApiStack extends cdk.Stack {
           'https://www.complical.com',
           'https://app.complical.com',  // App subdomain
         ],
-        allowMethods: ['GET', 'OPTIONS'],
+        allowMethods: ['GET', 'POST', 'OPTIONS'],
         allowHeaders: [
           'Content-Type',
           'X-Amz-Date',
@@ -107,6 +136,12 @@ export class ApiStack extends cdk.Stack {
     const au = v1.addResource('au');
     const ato = au.addResource('ato');
     const deadlines = ato.addResource('deadlines');
+
+    // Billing endpoints: /v1/billing/*
+    const billing = v1.addResource('billing');
+    const checkout = billing.addResource('checkout');
+    const webhooks = billing.addResource('webhooks');
+    const subscription = billing.addResource('subscription');
 
     // Add GET method with authorizer
     deadlines.addMethod('GET', new apigateway.LambdaIntegration(deadlinesFn), {
@@ -146,6 +181,77 @@ export class ApiStack extends cdk.Stack {
       ],
     });
 
+    // Billing endpoints
+    // POST /v1/billing/checkout - Create checkout session (requires auth)
+    checkout.addMethod('POST', new apigateway.LambdaIntegration(billingFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      methodResponses: [
+        {
+          statusCode: '200',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': true,
+          },
+        },
+        {
+          statusCode: '400',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': true,
+          },
+        },
+        {
+          statusCode: '401',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': true,
+          },
+        },
+        {
+          statusCode: '500',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': true,
+          },
+        },
+      ],
+    });
+
+    // POST /v1/billing/webhooks - Stripe webhook (no auth)
+    webhooks.addMethod('POST', new apigateway.LambdaIntegration(billingFn), {
+      methodResponses: [
+        {
+          statusCode: '200',
+        },
+        {
+          statusCode: '400',
+        },
+      ],
+    });
+
+    // GET /v1/billing/subscription - Get subscription status (requires auth)
+    subscription.addMethod('GET', new apigateway.LambdaIntegration(billingFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      methodResponses: [
+        {
+          statusCode: '200',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': true,
+          },
+        },
+        {
+          statusCode: '401',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': true,
+          },
+        },
+        {
+          statusCode: '500',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': true,
+          },
+        },
+      ],
+    });
+
     // Health check endpoint (no auth)
     const health = this.api.root.addResource('health');
     const healthFn = new lambda.Function(this, 'HealthCheckFunction', {
@@ -154,11 +260,31 @@ export class ApiStack extends cdk.Stack {
       handler: 'index.handler',
       code: lambda.Code.fromInline(`
         exports.handler = async (event) => {
+          const origin = event.headers?.origin || event.headers?.Origin;
+          const allowedOrigins = [
+            'http://localhost:3000',
+            'https://complical.com',
+            'https://www.complical.com',
+            'https://app.complical.com',
+          ];
+          
+          const allowedOrigin = origin && allowedOrigins.includes(origin) ? origin : 'https://complical.com';
+          
           return {
             statusCode: 200,
             headers: {
               'Content-Type': 'application/json',
-              'Access-Control-Allow-Origin': '*',
+              'Access-Control-Allow-Origin': allowedOrigin,
+              'Access-Control-Allow-Methods': 'GET, OPTIONS',
+              'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Api-Key',
+              'Access-Control-Max-Age': '3600',
+              // Security headers
+              'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+              'X-Content-Type-Options': 'nosniff',
+              'X-Frame-Options': 'DENY',
+              'X-XSS-Protection': '1; mode=block',
+              'Referrer-Policy': 'strict-origin-when-cross-origin',
+              'Content-Security-Policy': "default-src 'self'; frame-ancestors 'none';",
             },
             body: JSON.stringify({
               status: 'healthy',

@@ -2,6 +2,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { z } from 'zod';
+import { getSecurityHeaders } from '../utils/security-headers.js';
 
 const TABLE_NAME = process.env.TABLE_NAME || 'complical-deadlines-dev';
 const REGION = process.env.AWS_REGION || 'ap-south-1';
@@ -18,30 +19,6 @@ const QueryParamsSchema = z.object({
   limit: z.string().transform(Number).pipe(z.number().min(1).max(100)).optional().default('50'),
 });
 
-// Response headers
-const getAllowedOrigin = (origin?: string): string => {
-  const allowedOrigins = [
-    'http://localhost:3000',
-    'https://complical.com',
-    'https://www.complical.com',
-    'https://app.complical.com',
-  ];
-  
-  if (origin && allowedOrigins.includes(origin)) {
-    return origin;
-  }
-  
-  // Default to production domain
-  return 'https://complical.com';
-};
-
-const getHeaders = (origin?: string) => ({
-  'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': getAllowedOrigin(origin),
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Api-Key',
-  'Access-Control-Max-Age': '3600',
-});
 
 export const handler = async (
   event: APIGatewayProxyEvent
@@ -49,7 +26,7 @@ export const handler = async (
   console.log('Request:', JSON.stringify(event, null, 2));
 
   const origin = event.headers?.origin || event.headers?.Origin;
-  const headers = getHeaders(origin);
+  const headers = getSecurityHeaders(origin);
 
   try {
     // Handle OPTIONS request for CORS

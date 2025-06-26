@@ -1,11 +1,20 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import Stripe from 'stripe';
+import { CognitoIdentityProviderClient, AdminCreateUserCommand, AdminAddUserToGroupCommand } from '@aws-sdk/client-cognito-identity-provider';
+import { getSecurityHeaders } from '../utils/security-headers.js';
 import { z } from 'zod';
 
 // Initialize Stripe
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
   apiVersion: '2023-10-16',
 });
+
+// Initialize Cognito client
+const cognitoClient = new CognitoIdentityProviderClient({ 
+  region: process.env.AWS_REGION || 'ap-south-1' 
+});
+
+const USER_POOL_ID = process.env.USER_POOL_ID || '';
 
 // Pricing tiers
 const PRICING_TIERS = {
@@ -53,12 +62,8 @@ const ManageSubscriptionSchema = z.object({
 export const handler = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
-  const headers = {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': process.env.ALLOWED_ORIGIN || 'https://complical.com',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  };
+  const origin = event.headers?.origin || event.headers?.Origin;
+  const headers = getSecurityHeaders(origin);
 
   try {
     // Handle OPTIONS for CORS
@@ -191,15 +196,13 @@ async function handleWebhook(
     switch (stripeEvent.type) {
       case 'checkout.session.completed':
         const session = stripeEvent.data.object as Stripe.Checkout.Session;
-        // TODO: Create user in Cognito, assign tier
-        console.log('Checkout completed:', session);
+        await handleCheckoutCompleted(session);
         break;
         
       case 'customer.subscription.updated':
       case 'customer.subscription.deleted':
         const subscription = stripeEvent.data.object as Stripe.Subscription;
-        // TODO: Update user tier in Cognito
-        console.log('Subscription updated:', subscription);
+        await handleSubscriptionUpdate(subscription);
         break;
     }
 
@@ -297,4 +300,91 @@ function getFeatures(tier: string): string[] {
   };
 
   return tierFeatures[tier as keyof typeof tierFeatures] || baseFeatures;
+}
+
+// Helper function to handle checkout completion
+async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
+  console.log('Processing checkout completion:', session.id);
+  
+  if (!session.customer_email || !session.metadata?.tier) {
+    console.error('Missing required session data');
+    return;
+  }
+
+  const email = session.customer_email;
+  const tier = session.metadata.tier as keyof typeof PRICING_TIERS;
+  const customerId = session.customer as string;
+
+  try {
+    // Create Cognito user
+    const createUserCommand = new AdminCreateUserCommand({
+      UserPoolId: USER_POOL_ID,
+      Username: email,
+      UserAttributes: [
+        { Name: 'email', Value: email },
+        { Name: 'email_verified', Value: 'true' },
+        { Name: 'custom:stripe_customer_id', Value: customerId },
+        { Name: 'custom:subscription_tier', Value: tier },
+      ],
+      MessageAction: 'SUPPRESS', // Don't send welcome email
+      TemporaryPassword: generateTempPassword(),
+    });
+
+    await cognitoClient.send(createUserCommand);
+    console.log('Created Cognito user:', email);
+
+    // Add user to appropriate group
+    const addToGroupCommand = new AdminAddUserToGroupCommand({
+      UserPoolId: USER_POOL_ID,
+      Username: email,
+      GroupName: `tier_${tier}`,
+    });
+
+    await cognitoClient.send(addToGroupCommand);
+    console.log(`Added user to group: tier_${tier}`);
+
+  } catch (error) {
+    console.error('Error creating Cognito user:', error);
+    // Could implement retry logic or dead letter queue here
+  }
+}
+
+// Helper function to handle subscription updates
+async function handleSubscriptionUpdate(subscription: Stripe.Subscription) {
+  console.log('Processing subscription update:', subscription.id);
+  
+  // Get customer email from Stripe
+  const customer = await stripe.customers.retrieve(subscription.customer as string) as Stripe.Customer;
+  
+  if (!customer.email) {
+    console.error('Customer email not found');
+    return;
+  }
+
+  // Determine new tier based on subscription status
+  let newTier = 'developer'; // Default to free tier
+  
+  if (subscription.status === 'active') {
+    // Find which price ID matches
+    for (const [tierName, tierConfig] of Object.entries(PRICING_TIERS)) {
+      if (subscription.items.data.some((item: any) => item.price.id === tierConfig.priceId)) {
+        newTier = tierName;
+        break;
+      }
+    }
+  }
+
+  // Update user attributes in Cognito
+  // Note: In production, you'd use AdminUpdateUserAttributes command
+  console.log(`Would update user ${customer.email} to tier: ${newTier}`);
+}
+
+// Generate temporary password for Cognito user
+function generateTempPassword(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+  let password = '';
+  for (let i = 0; i < 16; i++) {
+    password += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return password;
 }
