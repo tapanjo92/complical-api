@@ -8,12 +8,10 @@ import {
   MessageActionType,
   AuthFlowType
 } from '@aws-sdk/client-cognito-identity-provider';
-import { APIGatewayClient, CreateApiKeyCommand } from '@aws-sdk/client-api-gateway';
 import { z } from 'zod';
 import * as crypto from 'crypto';
 
 const cognito = new CognitoIdentityProviderClient({});
-const apigateway = new APIGatewayClient({});
 
 const USER_POOL_ID = process.env.USER_POOL_ID!;
 const USER_POOL_CLIENT_ID = process.env.USER_POOL_CLIENT_ID!;

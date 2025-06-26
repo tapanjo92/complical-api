@@ -121,11 +121,18 @@ export class ApiStack extends cdk.Stack {
       },
     });
 
-    // API structure: /v1/au/ato/deadlines
+    // API structure: /v1/au/ato/deadlines and /v1/nz/ird/deadlines
     const v1 = this.api.root.addResource('v1');
+    
+    // Australian endpoints
     const au = v1.addResource('au');
     const ato = au.addResource('ato');
     const deadlines = ato.addResource('deadlines');
+    
+    // New Zealand endpoints
+    const nz = v1.addResource('nz');
+    const ird = nz.addResource('ird');
+    const nzDeadlines = ird.addResource('deadlines');
 
     // Auth endpoints: /v1/auth/*
     const auth = v1.addResource('auth');
@@ -139,7 +146,7 @@ export class ApiStack extends cdk.Stack {
     const webhooks = billing.addResource('webhooks');
     const subscription = billing.addResource('subscription');
 
-    // Add GET method with API key requirement only
+    // Add GET method with API key requirement only - Australia
     deadlines.addMethod('GET', new apigateway.LambdaIntegration(deadlinesFn), {
       apiKeyRequired: true,
       requestParameters: {
@@ -147,6 +154,45 @@ export class ApiStack extends cdk.Stack {
         'method.request.querystring.from_date': false,
         'method.request.querystring.to_date': false,
         'method.request.querystring.limit': false,
+        'method.request.querystring.nextToken': false,
+      },
+      methodResponses: [
+        {
+          statusCode: '200',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': true,
+          },
+        },
+        {
+          statusCode: '400',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': true,
+          },
+        },
+        {
+          statusCode: '401',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': true,
+          },
+        },
+        {
+          statusCode: '500',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': true,
+          },
+        },
+      ],
+    });
+    
+    // Add GET method with API key requirement only - New Zealand
+    nzDeadlines.addMethod('GET', new apigateway.LambdaIntegration(deadlinesFn), {
+      apiKeyRequired: true,
+      requestParameters: {
+        'method.request.querystring.type': false,
+        'method.request.querystring.from_date': false,
+        'method.request.querystring.to_date': false,
+        'method.request.querystring.limit': false,
+        'method.request.querystring.nextToken': false,
       },
       methodResponses: [
         {

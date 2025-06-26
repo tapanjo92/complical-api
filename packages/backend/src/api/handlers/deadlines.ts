@@ -12,11 +12,18 @@ const client = new DynamoDBClient({ region: REGION });
 const docClient = DynamoDBDocumentClient.from(client);
 
 // Query parameters schema
+// Australian deadline types
+const AUDeadlineTypes = z.enum(['BAS_QUARTERLY', 'BAS_MONTHLY', 'PAYG_WITHHOLDING', 'SUPER_GUARANTEE', 'INCOME_TAX', 'FBT']);
+
+// New Zealand deadline types  
+const NZDeadlineTypes = z.enum(['GST_MONTHLY', 'GST_2MONTHLY', 'GST_6MONTHLY', 'PAYE', 'PAYE_LARGE', 'PROVISIONAL_TAX', 'PROVISIONAL_TAX_RATIO', 'PROVISIONAL_TAX_AIM', 'IR3', 'FBT_QUARTERLY', 'FBT_ANNUAL', 'KIWISAVER']);
+
 const QueryParamsSchema = z.object({
-  type: z.enum(['BAS_QUARTERLY', 'BAS_MONTHLY', 'PAYG_WITHHOLDING', 'SUPER_GUARANTEE', 'INCOME_TAX', 'FBT']).optional(),
+  type: z.string().optional(),
   from_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   to_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   limit: z.string().transform(Number).pipe(z.number().min(1).max(100)).optional().default('50'),
+  nextToken: z.string().optional(), // For pagination
 });
 
 
@@ -52,6 +59,32 @@ export const handler = async (
 
     // Parse and validate query parameters
     const queryParams = QueryParamsSchema.parse(event.queryStringParameters || {});
+    
+    // Determine jurisdiction from path
+    const path = event.path;
+    let jurisdiction = 'AU'; // default
+    let validTypes: typeof AUDeadlineTypes | typeof NZDeadlineTypes = AUDeadlineTypes;
+    
+    if (path.includes('/nz/')) {
+      jurisdiction = 'NZ';
+      validTypes = NZDeadlineTypes;
+    }
+    
+    // Validate type if provided
+    if (queryParams.type) {
+      try {
+        validTypes.parse(queryParams.type);
+      } catch (e) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({
+            error: 'Invalid deadline type',
+            message: `Invalid type for ${jurisdiction}. Valid types are: ${validTypes.options.join(', ')}`,
+          }),
+        };
+      }
+    }
 
     // Build DynamoDB query
     let queryInput: any = {
@@ -59,10 +92,27 @@ export const handler = async (
       IndexName: 'GSI1',
       KeyConditionExpression: 'GSI1PK = :pk',
       ExpressionAttributeValues: {
-        ':pk': 'JURISDICTION#AU',
+        ':pk': `JURISDICTION#${jurisdiction}`,
       },
       Limit: queryParams.limit,
     };
+
+    // Handle pagination
+    if (queryParams.nextToken) {
+      try {
+        const decodedToken = JSON.parse(Buffer.from(queryParams.nextToken, 'base64').toString('utf-8'));
+        queryInput.ExclusiveStartKey = decodedToken;
+      } catch (error) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({
+            error: 'Invalid pagination token',
+            message: 'The provided nextToken is invalid or corrupted',
+          }),
+        };
+      }
+    }
 
     // Add date range filter if provided
     if (queryParams.from_date || queryParams.to_date) {
@@ -109,12 +159,11 @@ export const handler = async (
     })) || [];
 
     // Build response
-    const response = {
+    const response: any = {
       deadlines,
       count: deadlines.length,
-      lastEvaluatedKey: result.LastEvaluatedKey,
       filters: {
-        jurisdiction: 'AU',
+        jurisdiction,
         type: queryParams.type,
         dateRange: {
           from: queryParams.from_date,
@@ -122,6 +171,11 @@ export const handler = async (
         },
       },
     };
+
+    // Add pagination token if there are more results
+    if (result.LastEvaluatedKey) {
+      response.nextToken = Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString('base64');
+    }
 
     return {
       statusCode: 200,
