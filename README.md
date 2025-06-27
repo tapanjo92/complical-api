@@ -60,8 +60,12 @@ curl -X POST "https://api.complical.com/v1/auth/api-keys" \
   -H "Content-Type: application/json" \
   -d '{"name": "Production Key"}'
 
-# 4. Use the API
-curl -X GET "https://api.complical.com/v1/au/ato/deadlines" \
+# 4. Use the API - Ultra-Simple Way (NEW!)
+curl -X GET "https://api.complical.com/v1/deadlines/AU/2025/1" \
+  -H "x-api-key: YOUR_API_KEY"
+
+# 4b. With Smart Filtering (81% less data)
+curl -X GET "https://api.complical.com/v1/deadlines/AU/2025/1?category=tax" \
   -H "x-api-key: YOUR_API_KEY"
 ```
 

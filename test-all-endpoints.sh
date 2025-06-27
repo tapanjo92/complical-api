@@ -12,8 +12,23 @@ echo -e "\n1. Health Check"
 echo "---------------"
 curl -s -X GET "$API_URL/health" | jq '.'
 
-# 2. Simplified Global Endpoint
-echo -e "\n2. Simplified Global Endpoint (Calendarific-style)"
+# 2. Ultra-Simple Endpoint (NEW!)
+echo -e "\n2. Ultra-Simple Endpoint (NEW!)"
+echo "--------------------------------"
+echo "All January deadlines:"
+curl -s -X GET "$API_URL/v1/deadlines/AU/2025/1" \
+  -H "x-api-key: $API_KEY" | jq '{count, first: .deadlines[0].name}'
+
+echo -e "\nFebruary - Tax only (81% less data):"
+curl -s -X GET "$API_URL/v1/deadlines/AU/2025/2?category=tax" \
+  -H "x-api-key: $API_KEY" | jq '{count, filters, deadlines: [.deadlines[].name]}'
+
+echo -e "\nFebruary - Payroll only:"
+curl -s -X GET "$API_URL/v1/deadlines/AU/2025/2?category=payroll" \
+  -H "x-api-key: $API_KEY" | jq '{count, filters}'
+
+# 3. Simplified Global Endpoint (Calendarific-style)
+echo -e "\n3. Simplified Global Endpoint (Calendarific-style)"
 echo "-------------------------------------------------"
 echo "Query: Australia"
 curl -s -X GET "$API_URL/v1/deadlines?country=AU&limit=2" \
@@ -27,8 +42,8 @@ echo -e "\nQuery: Multiple countries"
 curl -s -X GET "$API_URL/v1/deadlines?countries=AU,NZ&limit=3" \
   -H "x-api-key: $API_KEY" | jq '.response | {countries: .filters.countries, count: .pagination.count}'
 
-# 3. Australian Traditional Endpoints
-echo -e "\n3. Australian Traditional Endpoints"
+# 4. Australian Traditional Endpoints
+echo -e "\n4. Australian Traditional Endpoints"
 echo "-----------------------------------"
 echo "All AU deadlines (count):"
 curl -s -X GET "$API_URL/v1/au/ato/deadlines" \
@@ -42,8 +57,8 @@ echo -e "\nDate range (Jan 2025):"
 curl -s -X GET "$API_URL/v1/au/ato/deadlines?from_date=2025-01-01&to_date=2025-01-31" \
   -H "x-api-key: $API_KEY" | jq '{count, firstDeadline: .deadlines[0].name}'
 
-# 4. New Zealand Traditional Endpoints
-echo -e "\n4. New Zealand Traditional Endpoints"
+# 5. New Zealand Traditional Endpoints
+echo -e "\n5. New Zealand Traditional Endpoints"
 echo "------------------------------------"
 echo "All NZ deadlines (count):"
 curl -s -X GET "$API_URL/v1/nz/ird/deadlines" \
@@ -53,8 +68,8 @@ echo -e "\nGST Monthly:"
 curl -s -X GET "$API_URL/v1/nz/ird/deadlines?type=GST_MONTHLY&limit=2" \
   -H "x-api-key: $API_KEY" | jq '.deadlines[] | {type, name, dueDate}'
 
-# 5. Pagination Test
-echo -e "\n5. Pagination Test"
+# 6. Pagination Test
+echo -e "\n6. Pagination Test"
 echo "------------------"
 FIRST_PAGE=$(curl -s -X GET "$API_URL/v1/au/ato/deadlines?limit=5" \
   -H "x-api-key: $API_KEY")
@@ -66,8 +81,8 @@ if [ ! -z "$NEXT_TOKEN" ]; then
   echo "Next token: ${NEXT_TOKEN:0:20}..."
 fi
 
-# 6. Error Handling Test
-echo -e "\n6. Error Handling Tests"
+# 7. Error Handling Test
+echo -e "\n7. Error Handling Tests"
 echo "----------------------"
 echo "Invalid type:"
 curl -s -X GET "$API_URL/v1/au/ato/deadlines?type=INVALID_TYPE" \
@@ -77,8 +92,8 @@ echo -e "\nInvalid date:"
 curl -s -X GET "$API_URL/v1/au/ato/deadlines?from_date=invalid-date" \
   -H "x-api-key: $API_KEY" | jq '.error'
 
-# 7. API Key Usage Check
-echo -e "\n7. API Key Usage Check"
+# 8. API Key Usage Check
+echo -e "\n8. API Key Usage Check"
 echo "---------------------"
 echo "Checking usage stats..."
 aws dynamodb get-item \

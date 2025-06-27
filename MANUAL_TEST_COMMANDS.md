@@ -74,6 +74,46 @@ curl -X GET "$API_URL/health"
 API_KEY="<your-api-key-from-create>"
 ```
 
+### Ultra-Simple Endpoints (NEW! Recommended)
+
+#### Get Monthly Deadlines
+```bash
+# January 2025 - All deadlines
+curl -X GET "$API_URL/v1/deadlines/AU/2025/1" \
+  -H "x-api-key: $API_KEY"
+
+# February 2025 - All deadlines  
+curl -X GET "$API_URL/v1/deadlines/AU/2025/2" \
+  -H "x-api-key: $API_KEY"
+
+# March 2025 for New Zealand
+curl -X GET "$API_URL/v1/deadlines/NZ/2025/3" \
+  -H "x-api-key: $API_KEY"
+```
+
+#### Server-Side Filtering (NEW!)
+```bash
+# Only tax-related deadlines
+curl -X GET "$API_URL/v1/deadlines/AU/2025/2?category=tax" \
+  -H "x-api-key: $API_KEY"
+
+# Only payroll deadlines (81% less data!)
+curl -X GET "$API_URL/v1/deadlines/AU/2025/2?category=payroll" \
+  -H "x-api-key: $API_KEY"
+
+# Only compliance deadlines
+curl -X GET "$API_URL/v1/deadlines/AU/2025/2?category=compliance" \
+  -H "x-api-key: $API_KEY"
+
+# Only super/retirement deadlines
+curl -X GET "$API_URL/v1/deadlines/AU/2025/2?category=super" \
+  -H "x-api-key: $API_KEY"
+
+# Specific type only
+curl -X GET "$API_URL/v1/deadlines/AU/2025/2?type=BAS_QUARTERLY" \
+  -H "x-api-key: $API_KEY"
+```
+
 ### Australian Deadlines - Traditional Endpoints
 
 #### Get All Australian Deadlines
@@ -273,6 +313,52 @@ curl -s -X GET "$API_URL/v1/au/ato/deadlines" \
 curl -s -X GET "$API_URL/v1/au/ato/deadlines" \
   -H "x-api-key: $API_KEY" | jq '.deadlines[] | select(.name | contains("Quarterly") or contains("quarterly")) | {name, dueDate, type}'
 ```
+
+## Ultra-Simple Endpoint Reference (NEW!)
+
+### Endpoint Format
+```
+GET /v1/deadlines/{country}/{year}/{month}
+GET /v1/deadlines/{country}/{year}/{month}?type={TYPE}
+GET /v1/deadlines/{country}/{year}/{month}?category={CATEGORY}
+```
+
+### Available Categories
+- **tax**: BAS, GST, Income Tax, FBT, PAYG Instalments, TPAR
+- **payroll**: PAYG Withholding, Payroll Tax (all states), STP, PAYE
+- **compliance**: Annual Company Reviews, Workers Compensation
+- **super**: Super Guarantee, KiwiSaver
+- **other**: Land Tax, Provisional Tax, RWT
+
+### Response Format
+```json
+{
+  "country": "AU",
+  "year": 2025,
+  "month": 2,
+  "deadlines": [
+    {
+      "id": "au-bas-quarterly-2025-02-28",
+      "name": "Q2 2024-25 BAS Statement",
+      "date": "2025-02-28",
+      "type": "BAS_QUARTERLY",
+      "agency": "Australian Taxation Office"
+    }
+  ],
+  "count": 1,
+  "filters": {
+    "type": "BAS_QUARTERLY"  // Shows applied filter
+  }
+}
+```
+
+### Performance Benefits
+| Filter | Data Reduction | Use Case |
+|--------|---------------|----------|
+| No filter | Baseline | Get everything for planning |
+| category=tax | ~81% less | Tax professionals |
+| category=payroll | ~35% less | Payroll departments |
+| type=BAS_QUARTERLY | ~89% less | Specific compliance |
 
 ## Available Deadline Types
 

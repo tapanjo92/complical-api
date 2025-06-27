@@ -113,6 +113,30 @@ export class ApiStack extends cdk.Stack {
     // Grant permissions
     props.deadlinesTable.grantReadData(simplifiedDeadlinesFn);
 
+    // Ultra-Simple Deadlines Lambda Function
+    const ultraSimpleDeadlinesFn = new NodejsFunction(this, 'UltraSimpleDeadlinesFunction', {
+      functionName: `complical-ultra-simple-deadlines-${props.environment}`,
+      entry: path.join(__dirname, '../../backend/src/api/handlers/ultra-simple-deadlines.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 512,
+      environment: {
+        TABLE_NAME: props.deadlinesTable.tableName,
+        ENVIRONMENT: props.environment,
+        AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1',
+      },
+      bundling: {
+        externalModules: ['aws-sdk'],
+        minify: true,
+        sourceMap: true,
+      },
+      tracing: lambda.Tracing.ACTIVE,
+    });
+
+    // Grant permissions
+    props.deadlinesTable.grantReadData(ultraSimpleDeadlinesFn);
+
     // Billing Lambda Function
     const billingFn = new NodejsFunction(this, 'BillingFunction', {
       functionName: `complical-billing-${props.environment}`,
@@ -222,6 +246,11 @@ export class ApiStack extends cdk.Stack {
     // Simplified global endpoint (Calendarific-style)
     const globalDeadlines = v1.addResource('deadlines');
     
+    // Ultra-simple endpoint: /v1/deadlines/{country}/{year}/{month}
+    const countryResource = globalDeadlines.addResource('{country}');
+    const yearResource = countryResource.addResource('{year}');
+    const monthResource = yearResource.addResource('{month}');
+    
     // Australian endpoints
     const au = v1.addResource('au');
     const ato = au.addResource('ato');
@@ -266,6 +295,45 @@ export class ApiStack extends cdk.Stack {
           responseParameters: {
             'method.response.header.Access-Control-Allow-Origin': true,
             'method.response.header.X-Warning': true,
+          },
+        },
+        {
+          statusCode: '400',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': true,
+          },
+        },
+        {
+          statusCode: '403',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': true,
+          },
+        },
+        {
+          statusCode: '500',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': true,
+          },
+        },
+      ],
+    });
+
+    // Add GET method for ultra-simple endpoint
+    monthResource.addMethod('GET', new apigateway.LambdaIntegration(ultraSimpleDeadlinesFn), {
+      authorizer: apiKeyAuthorizer,
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      requestParameters: {
+        'method.request.path.country': true,
+        'method.request.path.year': true,
+        'method.request.path.month': true,
+        'method.request.querystring.type': false,
+        'method.request.querystring.category': false,
+      },
+      methodResponses: [
+        {
+          statusCode: '200',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': true,
           },
         },
         {

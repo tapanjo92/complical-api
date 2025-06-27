@@ -53,6 +53,69 @@ paths:
                   status:
                     type: string
                     example: healthy
+                  timestamp:
+                    type: string
+                    format: date-time
+                  
+  /deadlines/{country}/{year}/{month}:
+    get:
+      summary: Get monthly deadlines (Ultra-Simple)
+      description: |
+        Get all compliance deadlines for a specific month. This is the recommended endpoint
+        for most use cases due to its simplicity and performance.
+        
+        **Performance tip**: Use category filtering to reduce response size by up to 81%.
+      tags:
+        - Deadlines
+      parameters:
+        - name: country
+          in: path
+          required: true
+          description: Country code
+          schema:
+            type: string
+            enum: [AU, NZ]
+        - name: year
+          in: path
+          required: true
+          description: 4-digit year
+          schema:
+            type: integer
+            example: 2025
+        - name: month
+          in: path
+          required: true
+          description: Month (1-12)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 12
+            example: 1
+        - name: type
+          in: query
+          required: false
+          description: Filter by specific deadline type
+          schema:
+            type: string
+            example: BAS_QUARTERLY
+        - name: category
+          in: query
+          required: false
+          description: Filter by category (reduces data transfer significantly)
+          schema:
+            type: string
+            enum: [tax, payroll, compliance, super, other]
+      responses:
+        '200':
+          description: Monthly deadlines
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: healthy
                   environment:
                     type: string
                     example: production

@@ -81,6 +81,10 @@ curl -X GET "https://lyd1qoxc01.execute-api.ap-south-1.amazonaws.com/dev/v1/au/a
 
 ## 🌍 Available Endpoints
 
+### Ultra-Simple Endpoint (NEW! Recommended)
+- `/v1/deadlines/{country}/{year}/{month}` - Cleanest API design
+  - Example: `/v1/deadlines/AU/2025/1` for January 2025
+
 ### Traditional Endpoints (RESTful)
 - `/v1/au/ato/deadlines` - Australian deadlines
 - `/v1/nz/ird/deadlines` - New Zealand deadlines
@@ -90,22 +94,31 @@ curl -X GET "https://lyd1qoxc01.execute-api.ap-south-1.amazonaws.com/dev/v1/au/a
 
 ## 🎯 Common Use Cases
 
+### Ultra-Simple: Get Monthly Deadlines
+```bash
+# All January 2025 deadlines for Australia
+curl -X GET "https://lyd1qoxc01.execute-api.ap-south-1.amazonaws.com/dev/v1/deadlines/AU/2025/1" \
+  -H "x-api-key: $API_KEY"
+
+# Only tax deadlines for February
+curl -X GET "https://lyd1qoxc01.execute-api.ap-south-1.amazonaws.com/dev/v1/deadlines/AU/2025/2?category=tax" \
+  -H "x-api-key: $API_KEY"
+
+# Only BAS deadlines for March
+curl -X GET "https://lyd1qoxc01.execute-api.ap-south-1.amazonaws.com/dev/v1/deadlines/AU/2025/3?type=BAS_QUARTERLY" \
+  -H "x-api-key: $API_KEY"
+```
+
 ### Get Upcoming Deadlines (Next 7 Days)
 ```bash
 curl -X GET "https://lyd1qoxc01.execute-api.ap-south-1.amazonaws.com/dev/v1/au/ato/deadlines?from_date=$(date +%Y-%m-%d)&to_date=$(date -d '+7 days' +%Y-%m-%d)" \
   -H "x-api-key: $API_KEY"
 ```
 
-### Filter by Deadline Type
+### Filter by Category (NEW!)
 ```bash
-# Get all BAS deadlines
-curl -X GET "https://lyd1qoxc01.execute-api.ap-south-1.amazonaws.com/dev/v1/au/ato/deadlines?type=BAS_QUARTERLY" \
-  -H "x-api-key: $API_KEY"
-```
-
-### Get Deadlines for Multiple Countries
-```bash
-curl -X GET "https://lyd1qoxc01.execute-api.ap-south-1.amazonaws.com/dev/v1/deadlines?countries=AU,NZ" \
+# Get all payroll-related deadlines
+curl -X GET "https://lyd1qoxc01.execute-api.ap-south-1.amazonaws.com/dev/v1/deadlines/AU/2025/2?category=payroll" \
   -H "x-api-key: $API_KEY"
 ```
 

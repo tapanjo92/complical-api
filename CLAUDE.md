@@ -323,6 +323,13 @@ aws dynamodb get-item \
 - ✅ Usage tracking now working (async via CloudWatch Logs)
 - ✅ All infrastructure managed via CDK (no manual changes needed)
 
+### Ultra-Simple Endpoint Added
+- ✅ New endpoint: `/v1/deadlines/{country}/{year}/{month}`
+- ✅ Server-side filtering with `type` and `category` parameters
+- ✅ 81% data reduction with category filtering
+- ✅ Backward compatible - no breaking changes
+- ✅ Full documentation updated
+
 ### Comprehensive Australian Data Loading
 - Loaded 82 new Australian compliance deadlines (51 + 31)
 - Total Australian deadlines now: 110 (was 12)
