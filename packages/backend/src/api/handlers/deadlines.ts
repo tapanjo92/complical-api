@@ -13,7 +13,58 @@ const docClient = DynamoDBDocumentClient.from(client);
 
 // Query parameters schema
 // Australian deadline types
-const AUDeadlineTypes = z.enum(['BAS_QUARTERLY', 'BAS_MONTHLY', 'PAYG_WITHHOLDING', 'SUPER_GUARANTEE', 'INCOME_TAX', 'FBT']);
+const AUDeadlineTypes = z.enum([
+  // Federal - ATO
+  'BAS_QUARTERLY',
+  'BAS_MONTHLY',
+  'PAYG_WITHHOLDING',
+  'PAYG_INSTALMENTS',
+  'SUPER_GUARANTEE',
+  'INCOME_TAX',
+  'COMPANY_TAX',
+  'FBT',
+  'GST',
+  'STP_FINALISATION',
+  'TPAR',
+  
+  // Federal - ASIC
+  'ASIC_ANNUAL_REVIEW',
+  
+  // State Revenue
+  'PAYROLL_TAX_NSW',
+  'PAYROLL_TAX_NSW_ANNUAL',
+  'PAYROLL_TAX_VIC',
+  'PAYROLL_TAX_VIC_ANNUAL',
+  'PAYROLL_TAX_QLD',
+  'PAYROLL_TAX_QLD_ANNUAL',
+  'PAYROLL_TAX_SA',
+  'PAYROLL_TAX_SA_ANNUAL',
+  'PAYROLL_TAX_WA',
+  'PAYROLL_TAX_WA_ANNUAL',
+  'PAYROLL_TAX_TAS',
+  'PAYROLL_TAX_TAS_ANNUAL',
+  'PAYROLL_TAX_NT',
+  'PAYROLL_TAX_NT_ANNUAL',
+  'PAYROLL_TAX_ACT',
+  'PAYROLL_TAX_ACT_ANNUAL',
+  'LAND_TAX_NSW',
+  'LAND_TAX_VIC',
+  'LAND_TAX_QLD',
+  'LAND_TAX_SA',
+  'LAND_TAX_WA',
+  'LAND_TAX_TAS',
+  'LAND_TAX_ACT',
+  
+  // Other Compliance
+  'WORKERS_COMP_NSW',
+  'WORKERS_COMP_VIC',
+  'WORKERS_COMP_QLD',
+  'WORKERS_COMP_SA',
+  'WORKERS_COMP_WA',
+  'WORKERS_COMP_TAS',
+  'WORKERS_COMP_NT',
+  'WORKERS_COMP_ACT',
+]);
 
 // New Zealand deadline types  
 const NZDeadlineTypes = z.enum(['GST_MONTHLY', 'GST_2MONTHLY', 'GST_6MONTHLY', 'PAYE', 'PAYE_LARGE', 'PROVISIONAL_TAX', 'PROVISIONAL_TAX_RATIO', 'PROVISIONAL_TAX_AIM', 'IR3', 'FBT_QUARTERLY', 'FBT_ANNUAL', 'KIWISAVER']);
