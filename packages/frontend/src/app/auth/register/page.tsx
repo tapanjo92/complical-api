@@ -21,6 +21,7 @@ export default function RegisterPage() {
       // Call our API to create user account
       const response = await fetch(`${window.COMPLICAL_CONFIG?.API_URL || ''}/v1/auth/register`, {
         method: 'POST',
+        credentials: 'include', // Include cookies
         headers: {
           'Content-Type': 'application/json',
         },

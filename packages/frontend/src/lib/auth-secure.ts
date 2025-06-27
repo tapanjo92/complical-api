@@ -1,5 +1,5 @@
 // Secure authentication service using httpOnly cookies
-import { API_URL } from '@/lib/config'
+import { config } from '@/lib/config'
 
 export interface AuthResponse {
   message: string
@@ -42,7 +42,7 @@ class AuthService {
   }
 
   async register(email: string, password: string, companyName?: string): Promise<AuthResponse> {
-    const response = await fetch(`${API_URL}/v1/auth/register`, {
+    const response = await fetch(`${config.API_URL}/v1/auth/register`, {
       method: 'POST',
       headers: this.getHeaders(),
       credentials: 'include', // Include cookies
@@ -59,7 +59,7 @@ class AuthService {
   }
 
   async login(email: string, password: string): Promise<AuthResponse> {
-    const response = await fetch(`${API_URL}/v1/auth/login`, {
+    const response = await fetch(`${config.API_URL}/v1/auth/login`, {
       method: 'POST',
       headers: this.getHeaders(),
       credentials: 'include', // Include cookies
@@ -83,7 +83,7 @@ class AuthService {
 
   async logout(): Promise<void> {
     try {
-      await fetch(`${API_URL}/v1/auth/logout`, {
+      await fetch(`${config.API_URL}/v1/auth/logout`, {
         method: 'POST',
         headers: this.getHeaders(),
         credentials: 'include',
@@ -96,7 +96,7 @@ class AuthService {
 
   async refreshToken(): Promise<boolean> {
     try {
-      const response = await fetch(`${API_URL}/v1/auth/refresh`, {
+      const response = await fetch(`${config.API_URL}/v1/auth/refresh`, {
         method: 'POST',
         headers: this.getHeaders(),
         credentials: 'include',

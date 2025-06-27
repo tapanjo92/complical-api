@@ -32,6 +32,7 @@ export default function LoginPage() {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include', // Important: include cookies
         body: JSON.stringify({
           email,
           password,
@@ -44,9 +45,18 @@ export default function LoginPage() {
 
       const data = await response.json()
       
-      // Store user token
-      localStorage.setItem('auth_token', data.token)
-      localStorage.setItem('user_email', email)
+      // Store CSRF token and user info (JWT is now in httpOnly cookie)
+      if (data.csrfToken) {
+        localStorage.setItem('csrf_token', data.csrfToken)
+      }
+      // Store ID token for API calls that require Authorization header
+      if (data.idToken) {
+        localStorage.setItem('id_token', data.idToken)
+      }
+      localStorage.setItem('user_email', data.email || email)
+      if (data.companyName) {
+        localStorage.setItem('company_name', data.companyName)
+      }
 
       // Redirect to dashboard
       router.push('/dashboard')

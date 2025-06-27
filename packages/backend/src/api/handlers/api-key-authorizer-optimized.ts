@@ -40,6 +40,9 @@ function generatePolicy(principalId: string, effect: string, resource: string, c
 }
 
 export const handler: APIGatewayRequestAuthorizerHandler = async (event) => {
+  console.log('Authorizer invoked for:', event.methodArn);
+  console.log('Headers:', JSON.stringify(event.headers));
+  
   try {
     // Extract API key from header
     const apiKey = event.headers?.['x-api-key'] || event.headers?.['X-Api-Key'];
@@ -75,13 +78,22 @@ export const handler: APIGatewayRequestAuthorizerHandler = async (event) => {
     }
 
     const keyData = result.Items[0];
+    console.log('Found API key for user:', keyData.userEmail);
 
     // Generate and return the policy
     // Pass key metadata as context for access logging
+    // Use wildcard resource to allow all methods
+    const arnParts = event.methodArn.split('/');
+    const apiId = arnParts[0].split(':').pop(); // Get API ID from ARN
+    const stage = arnParts[1];
+    const wildcardResource = `${arnParts[0]}/${stage}/*/*`;
+    
+    console.log('Generated wildcard resource:', wildcardResource);
+    
     const policy = generatePolicy(
       keyData.userEmail, // Use email as principal
       'Allow',
-      event.methodArn,
+      wildcardResource, // Allow all methods and resources
       {
         apiKeyId: keyData.id,
         userEmail: keyData.userEmail,

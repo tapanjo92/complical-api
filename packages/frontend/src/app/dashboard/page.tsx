@@ -52,18 +52,27 @@ export default function DashboardPage() {
   
   const fetchApiKeys = async () => {
     try {
-      const token = localStorage.getItem('auth_token')
-      if (!token) return
-      
+      const idToken = localStorage.getItem('id_token')
+      if (!idToken) {
+        router.push('/auth/login')
+        return
+      }
+
       const response = await fetch(`${window.COMPLICAL_CONFIG?.API_URL || ''}/v1/auth/api-keys`, {
+        method: 'GET',
+        credentials: 'include', // Include cookies
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`,
         },
       })
       
       if (response.ok) {
         const data = await response.json()
         setApiKeys(data.apiKeys || [])
+      } else if (response.status === 401) {
+        localStorage.removeItem('id_token')
+        router.push('/auth/login')
       }
     } catch (err) {
       console.error('Failed to fetch API keys:', err)
@@ -75,21 +84,23 @@ export default function DashboardPage() {
     setNewApiKey(null)
     
     try {
-      const token = localStorage.getItem('auth_token')
-      if (!token) {
+      const idToken = localStorage.getItem('id_token')
+      if (!idToken) {
         router.push('/auth/login')
         return
       }
-      
+
       const response = await fetch(`${window.COMPLICAL_CONFIG?.API_URL || ''}/v1/auth/api-keys`, {
         method: 'POST',
+        credentials: 'include', // Include cookies
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`,
         },
         body: JSON.stringify({
           name: 'Quick API Key',
           description: 'Generated from dashboard',
+          expiresIn: 90,
         }),
       })
       
@@ -97,6 +108,9 @@ export default function DashboardPage() {
         const data = await response.json()
         setNewApiKey(data.apiKey)
         fetchApiKeys() // Refresh the list
+      } else if (response.status === 401) {
+        localStorage.removeItem('id_token')
+        router.push('/auth/login')
       }
     } catch (err) {
       console.error('Failed to create API key:', err)

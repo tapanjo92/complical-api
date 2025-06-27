@@ -233,6 +233,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           email,
           companyName,
           csrfToken, // Send CSRF token in response for client to use
+          // Also return ID token for Authorization header usage
+          // Note: This is still secure as the refresh token remains in httpOnly cookie
+          idToken: authResponse.AuthenticationResult.IdToken,
         }),
       };
     }

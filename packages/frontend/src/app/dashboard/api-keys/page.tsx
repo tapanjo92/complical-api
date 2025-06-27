@@ -31,20 +31,25 @@ export default function ApiKeysPage() {
 
   const fetchApiKeys = async () => {
     try {
-      const token = localStorage.getItem('auth_token')
-      if (!token) {
+      const idToken = localStorage.getItem('id_token')
+      if (!idToken) {
         router.push('/auth/login')
         return
       }
 
       const response = await fetch(`${window.COMPLICAL_CONFIG?.API_URL || ''}/v1/auth/api-keys`, {
+        method: 'GET',
+        credentials: 'include', // Include cookies
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`,
         },
       })
 
       if (!response.ok) {
         if (response.status === 401) {
+          // Clear token and redirect to login
+          localStorage.removeItem('id_token')
           router.push('/auth/login')
           return
         }
@@ -65,25 +70,32 @@ export default function ApiKeysPage() {
     setError('')
     
     try {
-      const token = localStorage.getItem('auth_token')
-      if (!token) {
+      const idToken = localStorage.getItem('id_token')
+      if (!idToken) {
         router.push('/auth/login')
         return
       }
 
       const response = await fetch(`${window.COMPLICAL_CONFIG?.API_URL || ''}/v1/auth/api-keys`, {
         method: 'POST',
+        credentials: 'include', // Include cookies
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`,
         },
         body: JSON.stringify({
           name: newKeyName,
           description: newKeyDescription,
+          expiresIn: 90, // Default 90 days
         }),
       })
 
       if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem('id_token')
+          router.push('/auth/login')
+          return
+        }
         throw new Error('Failed to create API key')
       }
 
@@ -106,20 +118,30 @@ export default function ApiKeysPage() {
     }
 
     try {
-      const token = localStorage.getItem('auth_token')
-      if (!token) {
+      const idToken = localStorage.getItem('id_token')
+      const csrfToken = localStorage.getItem('csrf_token')
+      
+      if (!idToken) {
         router.push('/auth/login')
         return
       }
 
       const response = await fetch(`${window.COMPLICAL_CONFIG?.API_URL || ''}/v1/auth/api-keys/${keyId}`, {
         method: 'DELETE',
+        credentials: 'include', // Include cookies
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`,
+          ...(csrfToken && { 'X-CSRF-Token': csrfToken }),
         },
       })
 
       if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem('id_token')
+          router.push('/auth/login')
+          return
+        }
         throw new Error('Failed to revoke API key')
       }
 
