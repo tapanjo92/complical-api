@@ -5,11 +5,12 @@ This document provides comprehensive examples of all API requests for testing th
 ## Table of Contents
 1. [Authentication & Setup](#authentication--setup)
 2. [Health Check](#health-check)
-3. [Australian Deadlines](#australian-deadlines)
-4. [New Zealand Deadlines](#new-zealand-deadlines)
-5. [Billing & Subscription](#billing--subscription)
-6. [User Authentication](#user-authentication)
-7. [API Key Management](#api-key-management)
+3. [Simplified Global Endpoint (NEW)](#simplified-global-endpoint-new)
+4. [Australian Deadlines](#australian-deadlines)
+5. [New Zealand Deadlines](#new-zealand-deadlines)
+6. [Billing & Subscription](#billing--subscription)
+7. [User Authentication](#user-authentication)
+8. [API Key Management](#api-key-management)
 
 ## Base Configuration
 
@@ -40,6 +41,142 @@ aws apigateway get-api-key --api-key <KEY_ID> --include-value --region ap-south-
 ### Basic Health Check
 ```bash
 curl -X GET "${API_BASE_URL}/health"
+```
+
+## Simplified Global Endpoint (NEW)
+
+### Overview
+The simplified endpoint provides a Calendarific-style API that's easier to use while maintaining all CompliCal features.
+
+### Basic Usage
+```bash
+# Get all deadlines for a country
+curl -X GET "${API_BASE_URL}/v1/deadlines?country=AU" \
+  -H "X-API-Key: ${API_KEY}"
+
+# Get deadlines for multiple countries
+curl -X GET "${API_BASE_URL}/v1/deadlines?countries=AU,NZ" \
+  -H "X-API-Key: ${API_KEY}"
+```
+
+### Filtering by Date
+```bash
+# Filter by year
+curl -X GET "${API_BASE_URL}/v1/deadlines?country=AU&year=2025" \
+  -H "X-API-Key: ${API_KEY}"
+
+# Filter by year and month
+curl -X GET "${API_BASE_URL}/v1/deadlines?country=AU&year=2025&month=3" \
+  -H "X-API-Key: ${API_KEY}"
+
+# Custom date range (use traditional endpoints)
+# Note: from_date and to_date not supported in simplified endpoint
+```
+
+### Filtering by Type
+```bash
+# Get specific deadline type
+curl -X GET "${API_BASE_URL}/v1/deadlines?country=AU&type=BAS_QUARTERLY" \
+  -H "X-API-Key: ${API_KEY}"
+```
+
+### Pagination
+```bash
+# Limit results
+curl -X GET "${API_BASE_URL}/v1/deadlines?country=AU&limit=10" \
+  -H "X-API-Key: ${API_KEY}"
+
+# Pagination with offset
+curl -X GET "${API_BASE_URL}/v1/deadlines?country=AU&limit=10&offset=20" \
+  -H "X-API-Key: ${API_KEY}"
+```
+
+### API Key in URL (Deprecated)
+```bash
+# Using API key in URL parameter (not recommended)
+curl -X GET "${API_BASE_URL}/v1/deadlines?country=AU&api_key=${API_KEY}"
+
+# Note: This will include a deprecation warning in the response
+```
+
+### Response Format
+```json
+{
+  "meta": {
+    "code": 200,
+    "request_id": "abc-123-def",
+    "credits_remaining": null,
+    "warning": null
+  },
+  "response": {
+    "deadlines": [
+      {
+        "name": "Q3 2025 BAS Statement",
+        "description": "Quarterly Business Activity Statement for April-June 2025",
+        "country": "AU",
+        "date": {
+          "iso": "2025-07-28",
+          "datetime": {
+            "year": 2025,
+            "month": 7,
+            "day": 28
+          }
+        },
+        "type": ["BAS_QUARTERLY"],
+        "meta": {
+          "id": "au-bas-quarterly-2025-07-28-123456",
+          "agency": "Australian Taxation Office",
+          "period": "2025-Q3",
+          "applicableTo": ["Businesses registered for GST"],
+          "sourceUrl": "https://www.ato.gov.au/..."
+        }
+      }
+    ],
+    "pagination": {
+      "total": 110,
+      "count": 10,
+      "limit": 10,
+      "offset": 0,
+      "has_more": true
+    },
+    "filters": {
+      "countries": ["AU"],
+      "year": "2025",
+      "month": null,
+      "type": null
+    }
+  }
+}
+```
+
+### Country Codes
+The endpoint supports various country code formats:
+- `AU`, `AUS`, `AUSTRALIA` → Australia
+- `NZ`, `NZL`, `NEW ZEALAND`, `NEW_ZEALAND` → New Zealand
+- `SG`, `SGP`, `SINGAPORE` → Singapore (coming soon)
+
+### Examples
+
+#### Get Q1 2025 Australian Deadlines
+```bash
+curl -X GET "${API_BASE_URL}/v1/deadlines?country=AU&year=2025&month=1" \
+  -H "X-API-Key: ${API_KEY}" | jq '.response.deadlines[0:3]'
+```
+
+#### Get Multiple Countries with Pagination
+```bash
+curl -X GET "${API_BASE_URL}/v1/deadlines?countries=AU,NZ&limit=20&offset=0" \
+  -H "X-API-Key: ${API_KEY}" | jq '{
+    countries: .response.filters.countries,
+    total: .response.pagination.total,
+    returned: .response.pagination.count
+  }'
+```
+
+#### Filter by Deadline Type
+```bash
+curl -X GET "${API_BASE_URL}/v1/deadlines?country=AU&type=PAYROLL_TAX_NSW" \
+  -H "X-API-Key: ${API_KEY}" | jq '.response.deadlines | length'
 ```
 
 ## Australian Deadlines

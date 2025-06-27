@@ -13,12 +13,30 @@ export API_KEY="ipEAfuCnkF9EBP8Ne2Lc2E0WtUPSLVt9tntIbMib"
 curl -X GET "${API_URL}/health"
 ```
 
-### 2. Get All Australian Deadlines
+### 2. NEW: Simplified Global Endpoint (Calendarific-style)
+```bash
+# Single country
+curl -X GET "${API_URL}/v1/deadlines?country=AU" -H "X-API-Key: ${API_KEY}"
+
+# Multiple countries
+curl -X GET "${API_URL}/v1/deadlines?countries=AU,NZ" -H "X-API-Key: ${API_KEY}"
+
+# With year filter
+curl -X GET "${API_URL}/v1/deadlines?country=AU&year=2025" -H "X-API-Key: ${API_KEY}"
+
+# With year and month
+curl -X GET "${API_URL}/v1/deadlines?country=AU&year=2025&month=3" -H "X-API-Key: ${API_KEY}"
+
+# With pagination
+curl -X GET "${API_URL}/v1/deadlines?country=AU&limit=10&offset=20" -H "X-API-Key: ${API_KEY}"
+```
+
+### 3. Get All Australian Deadlines (Traditional)
 ```bash
 curl -X GET "${API_URL}/v1/au/ato/deadlines" -H "X-API-Key: ${API_KEY}"
 ```
 
-### 3. Get Specific Deadline Types
+### 4. Get Specific Deadline Types
 
 #### Federal Taxes
 ```bash

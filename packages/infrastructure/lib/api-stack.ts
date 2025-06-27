@@ -54,6 +54,30 @@ export class ApiStack extends cdk.Stack {
     // Grant permissions
     props.deadlinesTable.grantReadData(deadlinesFn);
 
+    // Simplified Deadlines Lambda Function (Calendarific-style)
+    const simplifiedDeadlinesFn = new NodejsFunction(this, 'SimplifiedDeadlinesFunction', {
+      functionName: `complical-simplified-deadlines-${props.environment}`,
+      entry: path.join(__dirname, '../../backend/src/api/handlers/simplified-deadlines.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 512,
+      environment: {
+        TABLE_NAME: props.deadlinesTable.tableName,
+        ENVIRONMENT: props.environment,
+        AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1',
+      },
+      bundling: {
+        externalModules: ['aws-sdk'],
+        minify: true,
+        sourceMap: true,
+      },
+      tracing: lambda.Tracing.ACTIVE,
+    });
+
+    // Grant permissions
+    props.deadlinesTable.grantReadData(simplifiedDeadlinesFn);
+
     // Billing Lambda Function
     const billingFn = new NodejsFunction(this, 'BillingFunction', {
       functionName: `complical-billing-${props.environment}`,
@@ -124,6 +148,9 @@ export class ApiStack extends cdk.Stack {
     // API structure: /v1/au/ato/deadlines and /v1/nz/ird/deadlines
     const v1 = this.api.root.addResource('v1');
     
+    // Simplified global endpoint (Calendarific-style)
+    const globalDeadlines = v1.addResource('deadlines');
+    
     // Australian endpoints
     const au = v1.addResource('au');
     const ato = au.addResource('ato');
@@ -145,6 +172,48 @@ export class ApiStack extends cdk.Stack {
     const checkout = billing.addResource('checkout');
     const webhooks = billing.addResource('webhooks');
     const subscription = billing.addResource('subscription');
+
+    // Add GET method for simplified global endpoint
+    globalDeadlines.addMethod('GET', new apigateway.LambdaIntegration(simplifiedDeadlinesFn), {
+      apiKeyRequired: true,
+      requestParameters: {
+        'method.request.querystring.country': false,
+        'method.request.querystring.countries': false,
+        'method.request.querystring.year': false,
+        'method.request.querystring.month': false,
+        'method.request.querystring.type': false,
+        'method.request.querystring.limit': false,
+        'method.request.querystring.offset': false,
+        'method.request.querystring.api_key': false,  // Support API key in URL (deprecated)
+      },
+      methodResponses: [
+        {
+          statusCode: '200',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': true,
+            'method.response.header.X-Warning': true,
+          },
+        },
+        {
+          statusCode: '400',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': true,
+          },
+        },
+        {
+          statusCode: '403',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': true,
+          },
+        },
+        {
+          statusCode: '500',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': true,
+          },
+        },
+      ],
+    });
 
     // Add GET method with API key requirement only - Australia
     deadlines.addMethod('GET', new apigateway.LambdaIntegration(deadlinesFn), {

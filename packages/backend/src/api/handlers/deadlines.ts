@@ -209,8 +209,13 @@ export const handler = async (
       lastUpdated: item.lastUpdated,
     })) || [];
 
-    // Build response
+    // Build response with meta information
     const response: any = {
+      meta: {
+        code: 200,
+        request_id: event.requestContext?.requestId,
+        version: 'v1',
+      },
       deadlines,
       count: deadlines.length,
       filters: {
@@ -243,6 +248,10 @@ export const handler = async (
         statusCode: 400,
         headers,
         body: JSON.stringify({
+          meta: {
+            code: 400,
+            request_id: event.requestContext?.requestId,
+          },
           error: 'Invalid request parameters',
           details: error.errors,
         }),
@@ -254,6 +263,10 @@ export const handler = async (
       statusCode: 500,
       headers,
       body: JSON.stringify({
+        meta: {
+          code: 500,
+          request_id: event.requestContext?.requestId,
+        },
         error: 'Internal server error',
         message: 'An unexpected error occurred while processing your request',
       }),
