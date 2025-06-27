@@ -24,9 +24,41 @@ export class ApiStack extends cdk.Stack {
     super(scope, id, props);
 
     // Create Cognito authorizer
-    const authorizer = new apigateway.CognitoUserPoolsAuthorizer(this, 'ApiAuthorizer', {
+    const cognitoAuthorizer = new apigateway.CognitoUserPoolsAuthorizer(this, 'ApiAuthorizer', {
       cognitoUserPools: [props.userPool],
       authorizerName: `complical-cognito-authorizer-${props.environment}`,
+      resultsCacheTtl: cdk.Duration.minutes(5),
+    });
+
+    // Create custom API key authorizer Lambda
+    const apiKeyAuthorizerFn = new NodejsFunction(this, 'ApiKeyAuthorizerFunction', {
+      functionName: `complical-api-key-authorizer-${props.environment}`,
+      entry: path.join(__dirname, '../../backend/src/api/handlers/api-key-authorizer.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      timeout: cdk.Duration.seconds(10),
+      memorySize: 256,
+      environment: {
+        API_KEYS_TABLE: props.apiKeysTable.tableName,
+        ENVIRONMENT: props.environment,
+        AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1',
+      },
+      bundling: {
+        externalModules: ['aws-sdk'],
+        minify: true,
+        sourceMap: true,
+      },
+      tracing: lambda.Tracing.ACTIVE,
+    });
+
+    // Grant permissions to read API keys table
+    props.apiKeysTable.grantReadWriteData(apiKeyAuthorizerFn);
+
+    // Create custom API key authorizer
+    const apiKeyAuthorizer = new apigateway.RequestAuthorizer(this, 'ApiKeyAuthorizer', {
+      handler: apiKeyAuthorizerFn,
+      authorizerName: `complical-api-key-authorizer-${props.environment}`,
+      identitySources: ['method.request.header.x-api-key'],
       resultsCacheTtl: cdk.Duration.minutes(5),
     });
 
@@ -134,13 +166,15 @@ export class ApiStack extends cdk.Stack {
           'https://app.complical.com',  // App subdomain
           'https://d2xoxkdqlbm2pj.cloudfront.net',  // CloudFront domain
         ],
-        allowMethods: ['GET', 'POST', 'OPTIONS'],
+        allowMethods: ['GET', 'POST', 'OPTIONS', 'DELETE'],
         allowHeaders: [
           'Content-Type',
           'X-Amz-Date',
           'Authorization',
           'X-Api-Key',
+          'X-CSRF-Token',
         ],
+        allowCredentials: true,
         maxAge: cdk.Duration.hours(1),
       },
     });
@@ -165,6 +199,8 @@ export class ApiStack extends cdk.Stack {
     const auth = v1.addResource('auth');
     const register = auth.addResource('register');
     const login = auth.addResource('login');
+    const logout = auth.addResource('logout');
+    const refresh = auth.addResource('refresh');
     const apiKeys = auth.addResource('api-keys');
 
     // Billing endpoints: /v1/billing/*
@@ -175,7 +211,8 @@ export class ApiStack extends cdk.Stack {
 
     // Add GET method for simplified global endpoint
     globalDeadlines.addMethod('GET', new apigateway.LambdaIntegration(simplifiedDeadlinesFn), {
-      apiKeyRequired: true,
+      authorizer: apiKeyAuthorizer,
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
       requestParameters: {
         'method.request.querystring.country': false,
         'method.request.querystring.countries': false,
@@ -215,9 +252,10 @@ export class ApiStack extends cdk.Stack {
       ],
     });
 
-    // Add GET method with API key requirement only - Australia
+    // Add GET method with custom API key authorizer - Australia
     deadlines.addMethod('GET', new apigateway.LambdaIntegration(deadlinesFn), {
-      apiKeyRequired: true,
+      authorizer: apiKeyAuthorizer,
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
       requestParameters: {
         'method.request.querystring.type': false,
         'method.request.querystring.from_date': false,
@@ -253,9 +291,10 @@ export class ApiStack extends cdk.Stack {
       ],
     });
     
-    // Add GET method with API key requirement only - New Zealand
+    // Add GET method with custom API key authorizer - New Zealand
     nzDeadlines.addMethod('GET', new apigateway.LambdaIntegration(deadlinesFn), {
-      apiKeyRequired: true,
+      authorizer: apiKeyAuthorizer,
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
       requestParameters: {
         'method.request.querystring.type': false,
         'method.request.querystring.from_date': false,
@@ -294,7 +333,7 @@ export class ApiStack extends cdk.Stack {
     // Billing endpoints
     // POST /v1/billing/checkout - Create checkout session (requires auth)
     checkout.addMethod('POST', new apigateway.LambdaIntegration(billingFn), {
-      authorizer,
+      authorizer: cognitoAuthorizer,
       authorizationType: apigateway.AuthorizationType.COGNITO,
       methodResponses: [
         {
@@ -338,7 +377,7 @@ export class ApiStack extends cdk.Stack {
 
     // GET /v1/billing/subscription - Get subscription status (requires auth)
     subscription.addMethod('GET', new apigateway.LambdaIntegration(billingFn), {
-      authorizer,
+      authorizer: cognitoAuthorizer,
       authorizationType: apigateway.AuthorizationType.COGNITO,
       apiKeyRequired: true,
       methodResponses: [
@@ -475,7 +514,7 @@ export class ApiStack extends cdk.Stack {
     // Auth Lambda Function for registration (created after usage plans)
     const authFn = new NodejsFunction(this, 'AuthFunction', {
       functionName: `complical-auth-${props.environment}`,
-      entry: path.join(__dirname, '../../backend/src/api/handlers/auth.ts'),
+      entry: path.join(__dirname, '../../backend/src/api/handlers/auth-secure.ts'),
       handler: 'handler',
       runtime: lambda.Runtime.NODEJS_20_X,
       timeout: cdk.Duration.seconds(30),
@@ -519,18 +558,21 @@ export class ApiStack extends cdk.Stack {
           statusCode: '200',
           responseParameters: {
             'method.response.header.Access-Control-Allow-Origin': true,
+            'method.response.header.Access-Control-Allow-Credentials': true,
           },
         },
         {
           statusCode: '400',
           responseParameters: {
             'method.response.header.Access-Control-Allow-Origin': true,
+            'method.response.header.Access-Control-Allow-Credentials': true,
           },
         },
         {
           statusCode: '500',
           responseParameters: {
             'method.response.header.Access-Control-Allow-Origin': true,
+            'method.response.header.Access-Control-Allow-Credentials': true,
           },
         },
       ],
@@ -543,24 +585,75 @@ export class ApiStack extends cdk.Stack {
           statusCode: '200',
           responseParameters: {
             'method.response.header.Access-Control-Allow-Origin': true,
+            'method.response.header.Access-Control-Allow-Credentials': true,
           },
         },
         {
           statusCode: '400',
           responseParameters: {
             'method.response.header.Access-Control-Allow-Origin': true,
+            'method.response.header.Access-Control-Allow-Credentials': true,
           },
         },
         {
           statusCode: '401',
           responseParameters: {
             'method.response.header.Access-Control-Allow-Origin': true,
+            'method.response.header.Access-Control-Allow-Credentials': true,
           },
         },
         {
           statusCode: '500',
           responseParameters: {
             'method.response.header.Access-Control-Allow-Origin': true,
+            'method.response.header.Access-Control-Allow-Credentials': true,
+          },
+        },
+      ],
+    });
+
+    // Add Lambda permission for the logout endpoint
+    logout.addMethod('POST', new apigateway.LambdaIntegration(authFn), {
+      methodResponses: [
+        {
+          statusCode: '200',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': true,
+            'method.response.header.Access-Control-Allow-Credentials': true,
+          },
+        },
+        {
+          statusCode: '500',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': true,
+            'method.response.header.Access-Control-Allow-Credentials': true,
+          },
+        },
+      ],
+    });
+
+    // Add Lambda permission for the refresh endpoint
+    refresh.addMethod('POST', new apigateway.LambdaIntegration(authFn), {
+      methodResponses: [
+        {
+          statusCode: '200',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': true,
+            'method.response.header.Access-Control-Allow-Credentials': true,
+          },
+        },
+        {
+          statusCode: '401',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': true,
+            'method.response.header.Access-Control-Allow-Credentials': true,
+          },
+        },
+        {
+          statusCode: '500',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': true,
+            'method.response.header.Access-Control-Allow-Credentials': true,
           },
         },
       ],
@@ -569,7 +662,7 @@ export class ApiStack extends cdk.Stack {
     // API Keys Lambda Function
     const apiKeysFn = new NodejsFunction(this, 'ApiKeysFunction', {
       functionName: `complical-api-keys-${props.environment}`,
-      entry: path.join(__dirname, '../../backend/src/api/handlers/api-keys.ts'),
+      entry: path.join(__dirname, '../../backend/src/api/handlers/api-keys-secure.ts'),
       handler: 'handler',
       runtime: lambda.Runtime.NODEJS_20_X,
       timeout: cdk.Duration.seconds(30),
@@ -612,7 +705,7 @@ export class ApiStack extends cdk.Stack {
     // Add API key management endpoints
     // POST /v1/auth/api-keys - Create new API key
     apiKeys.addMethod('POST', new apigateway.LambdaIntegration(apiKeysFn), {
-      authorizer,
+      authorizer: cognitoAuthorizer,
       authorizationType: apigateway.AuthorizationType.COGNITO,
       methodResponses: [
         {
@@ -644,7 +737,7 @@ export class ApiStack extends cdk.Stack {
 
     // GET /v1/auth/api-keys - List user's API keys
     apiKeys.addMethod('GET', new apigateway.LambdaIntegration(apiKeysFn), {
-      authorizer,
+      authorizer: cognitoAuthorizer,
       authorizationType: apigateway.AuthorizationType.COGNITO,
       methodResponses: [
         {
@@ -673,7 +766,7 @@ export class ApiStack extends cdk.Stack {
     
     // DELETE /v1/auth/api-keys/{id} - Delete an API key
     apiKeyId.addMethod('DELETE', new apigateway.LambdaIntegration(apiKeysFn), {
-      authorizer,
+      authorizer: cognitoAuthorizer,
       authorizationType: apigateway.AuthorizationType.COGNITO,
       methodResponses: [
         {

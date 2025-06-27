@@ -93,6 +93,16 @@ export class CompliCalStack extends cdk.Stack {
       projectionType: dynamodb.ProjectionType.ALL,
     });
 
+    // GSI for querying by hashed API key
+    this.apiKeysTable.addGlobalSecondaryIndex({
+      indexName: 'hashedKey-index',
+      partitionKey: {
+        name: 'hashedKey',
+        type: dynamodb.AttributeType.STRING,
+      },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+
     // Output the table names
     new cdk.CfnOutput(this, 'DeadlinesTableName', {
       value: this.deadlinesTable.tableName,

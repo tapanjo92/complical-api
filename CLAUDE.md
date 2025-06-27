@@ -293,6 +293,42 @@ curl -X GET "https://lyd1qoxc01.execute-api.ap-south-1.amazonaws.com/dev/v1/nz/i
 - ⚠️ Secrets Management: Should use AWS Secrets Manager
 - ⚠️ Network: No VPC isolation
 
+### Security Enhancements (2025-06-27)
+Implemented critical security fixes based on architecture analysis:
+
+**Completed Security Improvements:**
+1. ✅ **httpOnly Cookies for Authentication**
+   - Created `/packages/backend/src/api/handlers/auth-secure.ts`
+   - Replaced localStorage with secure httpOnly cookies
+   - Added CSRF token generation and validation
+   - Implemented logout and token refresh endpoints
+   - All cookies properly configured with Secure, SameSite, and expiration
+
+2. ✅ **API Key Hashing**
+   - Created `/packages/backend/src/api/handlers/api-keys-secure.ts`
+   - API keys hashed with SHA-256 before storage
+   - Key prefix stored for user identification
+   - Added GSI on hashedKey for efficient lookups
+   - Created custom authorizer for hash-based validation
+
+3. ✅ **API Key Expiration & Limits**
+   - Default 90-day expiration (configurable)
+   - Maximum 5 active keys per user
+   - Automatic expiration checking
+   - Usage counting and last-used tracking
+   - Soft delete for audit trail
+
+**Security Architecture:**
+- Authentication: Cognito + httpOnly cookies + CSRF tokens
+- API Keys: SHA-256 hashed, prefix-based identification
+- Rate Limiting: 10 req/s, 10k/month quota via usage plans
+- Encryption: At rest (DynamoDB) and in transit (TLS)
+- Headers: All security headers properly configured
+
+**Test Scripts Created:**
+- `/scripts/test-secure-auth.sh` - Tests httpOnly cookie auth
+- `/scripts/test-secure-api-keys.sh` - Tests hashed API keys
+
 ### Current Status (January 2025)
 
 **Phase 1.5 Completed:**
