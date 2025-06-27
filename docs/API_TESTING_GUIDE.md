@@ -556,54 +556,124 @@ curl -X POST "${API_BASE_URL}/v1/billing/webhooks" \
   }'
 ```
 
-## User Authentication
+## User Authentication (Secure with httpOnly Cookies)
 
 ### Register New User
 ```bash
+# Register with company name
 curl -X POST "${API_BASE_URL}/v1/auth/register" \
   -H "Content-Type: application/json" \
+  -c cookies.txt \
   -d '{
     "email": "user@example.com",
     "password": "SecurePassword123!",
-    "name": "Test User"
+    "companyName": "Test Company"
   }'
 ```
 
-### Login
+### Login (Returns CSRF Token)
 ```bash
+# Login and save cookies
 curl -X POST "${API_BASE_URL}/v1/auth/login" \
   -H "Content-Type: application/json" \
+  -b cookies.txt -c cookies.txt \
   -d '{
     "email": "user@example.com",
     "password": "SecurePassword123!"
   }'
+
+# Response includes CSRF token:
+# {
+#   "message": "Login successful",
+#   "email": "user@example.com",
+#   "companyName": "Test Company",
+#   "csrfToken": "abc123def456..."
+# }
 ```
 
-## API Key Management
+### Refresh Token
+```bash
+# Refresh tokens using CSRF token
+curl -X POST "${API_BASE_URL}/v1/auth/refresh" \
+  -H "X-CSRF-Token: <CSRF_TOKEN_FROM_LOGIN>" \
+  -b cookies.txt -c cookies.txt
+```
+
+### Logout
+```bash
+# Logout and clear cookies
+curl -X POST "${API_BASE_URL}/v1/auth/logout" \
+  -H "X-CSRF-Token: <CSRF_TOKEN_FROM_LOGIN>" \
+  -b cookies.txt -c cookies.txt
+```
+
+## API Key Management (Secure with Hashing)
+
+### Get JWT Token from Cookies
+```bash
+# Extract JWT token from cookies after login
+JWT_TOKEN=$(cat cookies.txt | grep id_token | awk '{print $7}')
+```
 
 ### List API Keys
 ```bash
-# Requires authentication token
+# List all your API keys (shows metadata only, not actual keys)
 curl -X GET "${API_BASE_URL}/v1/auth/api-keys" \
-  -H "Authorization: Bearer <AUTH_TOKEN>"
+  -H "Authorization: Bearer ${JWT_TOKEN}"
+
+# Response:
+# {
+#   "apiKeys": [{
+#     "id": "abc123",
+#     "name": "Production Key",
+#     "keyPrefix": "5KLm20Nj",
+#     "createdAt": "2025-06-27T09:15:41.532Z",
+#     "expiresAt": "2025-09-25T09:15:41.532Z",
+#     "lastUsed": "2025-06-27T09:25:39.000Z",
+#     "status": "active",
+#     "usageCount": 6
+#   }]
+# }
 ```
 
 ### Create API Key
 ```bash
+# Create new API key with custom expiration
 curl -X POST "${API_BASE_URL}/v1/auth/api-keys" \
-  -H "Authorization: Bearer <AUTH_TOKEN>" \
+  -H "Authorization: Bearer ${JWT_TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Production API Key",
-    "permissions": ["read:deadlines", "write:deadlines"]
+    "description": "Key for production environment",
+    "expiresIn": 90
   }'
+
+# Response (SAVE THE API KEY - YOU WON'T SEE IT AGAIN):
+# {
+#   "id": "xyz789",
+#   "name": "Production API Key",
+#   "apiKey": "5KLm20NjZs2ZTLjh09g9U4RWjhaAZYBy5moOsJx5",
+#   "keyPrefix": "5KLm20Nj",
+#   "createdAt": "2025-06-27T09:15:41.532Z",
+#   "expiresAt": "2025-09-25T09:15:41.532Z",
+#   "message": "Store this API key securely. You will not be able to see it again."
+# }
 ```
 
-### Delete API Key
+### Delete (Revoke) API Key
 ```bash
+# Delete an API key by ID
 curl -X DELETE "${API_BASE_URL}/v1/auth/api-keys/{keyId}" \
-  -H "Authorization: Bearer <AUTH_TOKEN>"
+  -H "Authorization: Bearer ${JWT_TOKEN}"
+
+# Returns 204 No Content on success
 ```
+
+### API Key Limits
+- Maximum 5 active API keys per user
+- Default expiration: 90 days
+- Keys are hashed with SHA-256 before storage
+- Revoked keys cannot be recovered
 
 ## Testing Scripts
 
@@ -742,9 +812,171 @@ curl -i -X GET "${API_BASE_URL}/v1/au/ato/deadlines?limit=5" \
 6. Authentication endpoints require Bearer tokens after login
 7. Webhook endpoints require proper signature validation
 
+## Security Testing
+
+### Test httpOnly Cookie Authentication
+```bash
+#!/bin/bash
+API_URL="https://lyd1qoxc01.execute-api.ap-south-1.amazonaws.com/dev"
+TEST_EMAIL="security-test-$(date +%s)@example.com"
+TEST_PASSWORD="SecurePassword123!"
+
+# 1. Register
+echo "Testing Registration..."
+curl -s -c cookies.txt -X POST "$API_URL/v1/auth/register" \
+  -H "Content-Type: application/json" \
+  -d "{\"email\":\"$TEST_EMAIL\",\"password\":\"$TEST_PASSWORD\",\"companyName\":\"Security Test\"}" | jq '.'
+
+# 2. Login and get CSRF token
+echo -e "\nTesting Login..."
+LOGIN_RESPONSE=$(curl -s -b cookies.txt -c cookies.txt -X POST "$API_URL/v1/auth/login" \
+  -H "Content-Type: application/json" \
+  -d "{\"email\":\"$TEST_EMAIL\",\"password\":\"$TEST_PASSWORD\"}")
+
+echo "$LOGIN_RESPONSE" | jq '.'
+CSRF_TOKEN=$(echo "$LOGIN_RESPONSE" | jq -r '.csrfToken')
+
+# 3. Check cookies are httpOnly
+echo -e "\nChecking httpOnly cookies..."
+cat cookies.txt | grep -E "(id_token|access_token|refresh_token)" | grep HttpOnly
+
+# 4. Refresh tokens
+echo -e "\nTesting Token Refresh..."
+curl -s -b cookies.txt -c cookies.txt -X POST "$API_URL/v1/auth/refresh" \
+  -H "X-CSRF-Token: $CSRF_TOKEN" | jq '.'
+
+# 5. Logout
+echo -e "\nTesting Logout..."
+curl -s -b cookies.txt -c cookies.txt -X POST "$API_URL/v1/auth/logout" \
+  -H "X-CSRF-Token: $CSRF_TOKEN" | jq '.'
+
+# Clean up
+rm -f cookies.txt
+```
+
+### Test API Key Security
+```bash
+#!/bin/bash
+# Prerequisites: Must be logged in with JWT token
+
+# 1. Create API key
+echo "Creating API key..."
+KEY_RESPONSE=$(curl -s -X POST "$API_URL/v1/auth/api-keys" \
+  -H "Authorization: Bearer $JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Security Test Key","expiresIn":1}')
+
+API_KEY=$(echo "$KEY_RESPONSE" | jq -r '.apiKey')
+KEY_ID=$(echo "$KEY_RESPONSE" | jq -r '.id')
+KEY_PREFIX=$(echo "$KEY_RESPONSE" | jq -r '.keyPrefix')
+
+echo "Created key with prefix: $KEY_PREFIX"
+
+# 2. Test API access
+echo -e "\nTesting API access with key..."
+curl -s -X GET "$API_URL/v1/au/ato/deadlines?limit=1" \
+  -H "x-api-key: $API_KEY" | jq '.meta'
+
+# 3. Check key usage was tracked
+echo -e "\nChecking key usage tracking..."
+sleep 2
+curl -s -X GET "$API_URL/v1/auth/api-keys" \
+  -H "Authorization: Bearer $JWT_TOKEN" | jq ".apiKeys[] | select(.id==\"$KEY_ID\") | {usageCount, lastUsed}"
+
+# 4. Revoke key
+echo -e "\nRevoking API key..."
+curl -s -X DELETE "$API_URL/v1/auth/api-keys/$KEY_ID" \
+  -H "Authorization: Bearer $JWT_TOKEN" -w "\nStatus: %{http_code}\n"
+
+# 5. Test revoked key fails
+echo -e "\nTesting revoked key (should fail)..."
+curl -s -X GET "$API_URL/v1/au/ato/deadlines?limit=1" \
+  -H "x-api-key: $API_KEY" -w "\nStatus: %{http_code}\n"
+```
+
+### Test Native Solution Usage Tracking
+```bash
+#!/bin/bash
+# Monitor API key usage in real-time
+
+# 1. Check current usage
+echo "Current API key usage:"
+aws dynamodb get-item \
+  --table-name complical-api-keys-dev \
+  --key '{"id":{"S":"YOUR_KEY_ID"}}' \
+  --region ap-south-1 | jq '.Item | {id, lastUsed, usageCount}'
+
+# 2. Check usage aggregates
+echo -e "\nHourly usage aggregates:"
+aws dynamodb query \
+  --table-name complical-api-usage-dev \
+  --key-condition-expression "PK = :pk AND begins_with(SK, :sk)" \
+  --expression-attribute-values '{":pk":{"S":"USER#your-email@example.com"},":sk":{"S":"AGGREGATE#"}}' \
+  --region ap-south-1 | jq '.Items[] | {
+    hour: .SK.S,
+    requests: .requests.N,
+    successfulRequests: .successfulRequests.N,
+    failedRequests: .failedRequests.N
+  }'
+
+# 3. Check CloudWatch logs
+echo -e "\nRecent API Gateway access logs:"
+aws logs tail /aws/apigateway/complical-dev --since 5m --region ap-south-1 | tail -10
+
+# 4. Check usage processor Lambda logs
+echo -e "\nUsage processor Lambda logs:"
+aws logs tail /aws/lambda/complical-usage-processor-dev --since 5m --region ap-south-1 | grep -E "(Successfully processed|ERROR)" | tail -5
+```
+
+### Load Test with Usage Tracking
+```bash
+#!/bin/bash
+API_KEY="YOUR_API_KEY"
+
+# Make 50 concurrent requests
+echo "Starting load test..."
+seq 1 50 | parallel -j 10 "curl -s -X GET '$API_URL/v1/au/ato/deadlines?limit=1' \
+  -H 'x-api-key: $API_KEY' -o /dev/null -w 'Request {}: %{http_code}\n'"
+
+# Wait for processing
+echo -e "\nWaiting for usage processing..."
+sleep 10
+
+# Check updated usage count
+echo -e "\nChecking usage count after load test:"
+aws dynamodb get-item \
+  --table-name complical-api-keys-dev \
+  --key '{"id":{"S":"YOUR_KEY_ID"}}' \
+  --region ap-south-1 | jq '.Item.usageCount.N'
+```
+
+## Security Headers Validation
+```bash
+# Check all security headers
+curl -I -X GET "${API_BASE_URL}/v1/au/ato/deadlines?limit=1" \
+  -H "X-API-Key: ${API_KEY}" | grep -E "(Strict-Transport-Security|X-Content-Type-Options|X-Frame-Options|X-XSS-Protection|Content-Security-Policy|Referrer-Policy)"
+```
+
+## Rate Limiting Test
+```bash
+# Test rate limiting (10 req/s limit)
+for i in {1..15}; do
+  START=$(date +%s%N)
+  curl -s -X GET "${API_BASE_URL}/v1/au/ato/deadlines?limit=1" \
+    -H "X-API-Key: ${API_KEY}" \
+    -o /dev/null -w "Request $i: %{http_code}"
+  END=$(date +%s%N)
+  DURATION=$((($END - $START)/1000000))
+  echo " (${DURATION}ms)"
+  # No sleep - test burst
+done
+```
+
 ## Support
 
 For issues or questions:
 - Check CloudWatch logs in AWS Console
 - Review API Gateway metrics
+- Check usage metrics in DynamoDB tables
+- Monitor Lambda function logs
 - Contact support with request ID from response headers

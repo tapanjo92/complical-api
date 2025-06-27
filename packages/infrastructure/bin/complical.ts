@@ -45,6 +45,7 @@ const apiStack = new ApiStack(app, `CompliCal-Api-${targetEnv}`, {
   userPoolClient: authStack.userPoolClient,
   deadlinesTable: dataStack.deadlinesTable,
   apiKeysTable: dataStack.apiKeysTable,
+  apiUsageTable: dataStack.apiUsageTable,
 });
 
 // Add dependencies

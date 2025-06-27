@@ -182,6 +182,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       const expiresAt = new Date(createdAt);
       expiresAt.setDate(expiresAt.getDate() + expiresIn);
 
+      // Calculate TTL for DynamoDB (Unix timestamp in seconds)
+      const ttlTimestamp = Math.floor(expiresAt.getTime() / 1000);
+
       // Store API key metadata in DynamoDB with hashed key
       const hashedKey = hashApiKey(apiKeyResponse.value);
       const keyPrefix = getApiKeyPrefix(apiKeyResponse.value);
@@ -195,6 +198,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         keyPrefix, // Store prefix for identification
         createdAt: createdAt.toISOString(),
         expiresAt: expiresAt.toISOString(),
+        ttl: ttlTimestamp, // DynamoDB TTL attribute
         lastUsed: null,
         status: 'active',
         usageCount: 0,
@@ -237,38 +241,19 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
       const result = await dynamodb.send(queryCommand);
 
-      // Filter out expired keys and update their status
-      const now = new Date();
-      const keys = await Promise.all(
-        (result.Items || []).map(async (item) => {
-          const expiresAt = new Date(item.expiresAt);
-          
-          // If key is expired and still marked as active, update it
-          if (expiresAt < now && item.status === 'active') {
-            await dynamodb.send(new PutCommand({
-              TableName: API_KEYS_TABLE,
-              Item: {
-                ...item,
-                status: 'expired',
-              },
-            }));
-            item.status = 'expired';
-          }
-
-          // Don't return the hashed key, just metadata
-          return {
-            id: item.id,
-            name: item.name,
-            description: item.description,
-            keyPrefix: item.keyPrefix, // For identification
-            createdAt: item.createdAt,
-            expiresAt: item.expiresAt,
-            lastUsed: item.lastUsed,
-            status: item.status,
-            usageCount: item.usageCount || 0,
-          };
-        })
-      );
+      // DynamoDB TTL will automatically remove expired keys
+      // No need to check expiration manually
+      const keys = (result.Items || []).map((item) => ({
+        id: item.id,
+        name: item.name,
+        description: item.description,
+        keyPrefix: item.keyPrefix, // For identification
+        createdAt: item.createdAt,
+        expiresAt: item.expiresAt,
+        lastUsed: item.lastUsed,
+        status: item.status,
+        usageCount: item.usageCount || 0,
+      }));
 
       return {
         statusCode: 200,

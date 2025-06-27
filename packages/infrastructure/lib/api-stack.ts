@@ -5,6 +5,8 @@ import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
+import * as logs from 'aws-cdk-lib/aws-logs';
+import * as logsDestinations from 'aws-cdk-lib/aws-logs-destinations';
 import * as path from 'path';
 import { Construct } from 'constructs';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
@@ -15,6 +17,7 @@ export interface ApiStackProps extends cdk.StackProps {
   userPoolClient: cognito.UserPoolClient;
   deadlinesTable: dynamodb.Table;
   apiKeysTable: dynamodb.Table;
+  apiUsageTable: dynamodb.Table;
 }
 
 export class ApiStack extends cdk.Stack {
@@ -30,10 +33,10 @@ export class ApiStack extends cdk.Stack {
       resultsCacheTtl: cdk.Duration.minutes(5),
     });
 
-    // Create custom API key authorizer Lambda
+    // Create custom API key authorizer Lambda (optimized version)
     const apiKeyAuthorizerFn = new NodejsFunction(this, 'ApiKeyAuthorizerFunction', {
       functionName: `complical-api-key-authorizer-${props.environment}`,
-      entry: path.join(__dirname, '../../backend/src/api/handlers/api-key-authorizer.ts'),
+      entry: path.join(__dirname, '../../backend/src/api/handlers/api-key-authorizer-optimized.ts'),
       handler: 'handler',
       runtime: lambda.Runtime.NODEJS_20_X,
       timeout: cdk.Duration.seconds(10),
@@ -51,8 +54,8 @@ export class ApiStack extends cdk.Stack {
       tracing: lambda.Tracing.ACTIVE,
     });
 
-    // Grant permissions to read API keys table
-    props.apiKeysTable.grantReadWriteData(apiKeyAuthorizerFn);
+    // Grant permissions to read API keys table (read-only)
+    props.apiKeysTable.grantReadData(apiKeyAuthorizerFn);
 
     // Create custom API key authorizer
     const apiKeyAuthorizer = new apigateway.RequestAuthorizer(this, 'ApiKeyAuthorizer', {
@@ -141,6 +144,15 @@ export class ApiStack extends cdk.Stack {
 
     // We'll create the auth function later after we have the usage plan ID
 
+    // Create CloudWatch log group for API Gateway access logs
+    const apiLogGroup = new logs.LogGroup(this, 'ApiAccessLogs', {
+      logGroupName: `/aws/apigateway/complical-${props.environment}`,
+      retention: logs.RetentionDays.ONE_MONTH,
+      removalPolicy: props.environment === 'prod' 
+        ? cdk.RemovalPolicy.RETAIN 
+        : cdk.RemovalPolicy.DESTROY,
+    });
+
     // Create API
     this.api = new apigateway.RestApi(this, 'CompliCalApi', {
       restApiName: `complical-api-${props.environment}`,
@@ -151,6 +163,31 @@ export class ApiStack extends cdk.Stack {
         metricsEnabled: true,
         loggingLevel: apigateway.MethodLoggingLevel.INFO,
         dataTraceEnabled: props.environment !== 'prod',
+        // Enable access logging
+        accessLogDestination: new apigateway.LogGroupLogDestination(apiLogGroup),
+        accessLogFormat: apigateway.AccessLogFormat.custom(JSON.stringify({
+          requestId: apigateway.AccessLogField.contextRequestId(),
+          requestTime: apigateway.AccessLogField.contextRequestTime(),
+          identity: {
+            sourceIp: apigateway.AccessLogField.contextIdentitySourceIp(),
+            userAgent: apigateway.AccessLogField.contextIdentityUserAgent(),
+          },
+          authorizer: {
+            principalId: apigateway.AccessLogField.contextAuthorizerPrincipalId(),
+            apiKeyId: '$context.authorizer.apiKeyId',
+            userEmail: '$context.authorizer.userEmail',
+            keyName: '$context.authorizer.keyName',
+          },
+          httpMethod: apigateway.AccessLogField.contextHttpMethod(),
+          path: apigateway.AccessLogField.contextPath(),
+          protocol: apigateway.AccessLogField.contextProtocol(),
+          responseLength: apigateway.AccessLogField.contextResponseLength(),
+          status: apigateway.AccessLogField.contextStatus(),
+          error: {
+            message: apigateway.AccessLogField.contextErrorMessage(),
+            responseType: apigateway.AccessLogField.contextErrorResponseType(),
+          },
+        })),
         methodOptions: {
           '/*/*': {
             throttlingRateLimit: 10,
@@ -808,6 +845,44 @@ export class ApiStack extends cdk.Stack {
       exportName: `${this.stackName}-FreeTierPlanId`,
     });
 
+    // Create Lambda function for processing usage logs
+    const usageProcessorFn = new NodejsFunction(this, 'UsageProcessorFunction', {
+      functionName: `complical-usage-processor-${props.environment}`,
+      entry: path.join(__dirname, '../../backend/src/api/handlers/process-usage-logs.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      timeout: cdk.Duration.minutes(5),
+      memorySize: 512,
+      environment: {
+        API_KEYS_TABLE: props.apiKeysTable.tableName,
+        API_USAGE_TABLE: props.apiUsageTable.tableName,
+        ENVIRONMENT: props.environment,
+        AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1',
+      },
+      bundling: {
+        externalModules: ['aws-sdk'],
+        minify: true,
+        sourceMap: true,
+      },
+      tracing: lambda.Tracing.ACTIVE,
+    });
+
+    // Grant permissions
+    props.apiKeysTable.grantReadWriteData(usageProcessorFn);
+    props.apiUsageTable.grantReadWriteData(usageProcessorFn);
+
+    // Create subscription filter to send logs to Lambda
+    apiLogGroup.addSubscriptionFilter('UsageProcessorSubscription', {
+      destination: new logsDestinations.LambdaDestination(usageProcessorFn),
+      filterPattern: logs.FilterPattern.allEvents(),
+    });
+
+    // Grant CloudWatch Logs permission to invoke the Lambda
+    usageProcessorFn.addPermission('AllowCloudWatchLogs', {
+      principal: new iam.ServicePrincipal('logs.amazonaws.com'),
+      sourceArn: apiLogGroup.logGroupArn,
+    });
+
     // Outputs
     new cdk.CfnOutput(this, 'ApiUrl', {
       value: this.api.url,
@@ -817,6 +892,11 @@ export class ApiStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'ApiId', {
       value: this.api.restApiId,
       description: 'API Gateway ID',
+    });
+
+    new cdk.CfnOutput(this, 'ApiAccessLogGroup', {
+      value: apiLogGroup.logGroupName,
+      description: 'CloudWatch log group for API access logs',
     });
   }
 }

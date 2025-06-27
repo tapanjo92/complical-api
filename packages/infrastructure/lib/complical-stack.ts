@@ -9,6 +9,7 @@ export interface CompliCalStackProps extends cdk.StackProps {
 export class CompliCalStack extends cdk.Stack {
   public readonly deadlinesTable: dynamodb.Table;
   public readonly apiKeysTable: dynamodb.Table;
+  public readonly apiUsageTable: dynamodb.Table;
 
   constructor(scope: Construct, id: string, props: CompliCalStackProps) {
     super(scope, id, props);
@@ -74,6 +75,7 @@ export class CompliCalStack extends cdk.Stack {
       pointInTimeRecoverySpecification: {
         pointInTimeRecoveryEnabled: true,
       },
+      timeToLiveAttribute: 'ttl', // Enable TTL for automatic expiration
       removalPolicy: props.environment === 'prod' 
         ? cdk.RemovalPolicy.RETAIN 
         : cdk.RemovalPolicy.DESTROY,
@@ -103,6 +105,28 @@ export class CompliCalStack extends cdk.Stack {
       projectionType: dynamodb.ProjectionType.ALL,
     });
 
+    // DynamoDB table for API usage metrics
+    this.apiUsageTable = new dynamodb.Table(this, 'ApiUsageTable', {
+      tableName: `complical-api-usage-${props.environment}`,
+      partitionKey: {
+        name: 'PK',
+        type: dynamodb.AttributeType.STRING,
+      },
+      sortKey: {
+        name: 'SK',
+        type: dynamodb.AttributeType.STRING,
+      },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      encryption: dynamodb.TableEncryption.AWS_MANAGED,
+      pointInTimeRecoverySpecification: {
+        pointInTimeRecoveryEnabled: true,
+      },
+      timeToLiveAttribute: 'ttl', // Enable TTL for automatic cleanup
+      removalPolicy: props.environment === 'prod' 
+        ? cdk.RemovalPolicy.RETAIN 
+        : cdk.RemovalPolicy.DESTROY,
+    });
+
     // Output the table names
     new cdk.CfnOutput(this, 'DeadlinesTableName', {
       value: this.deadlinesTable.tableName,
@@ -112,6 +136,11 @@ export class CompliCalStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'ApiKeysTableName', {
       value: this.apiKeysTable.tableName,
       description: 'DynamoDB table name for API keys',
+    });
+
+    new cdk.CfnOutput(this, 'ApiUsageTableName', {
+      value: this.apiUsageTable.tableName,
+      description: 'DynamoDB table name for API usage metrics',
     });
   }
 }

@@ -3,7 +3,11 @@
 ## Setup
 ```bash
 export API_URL="https://lyd1qoxc01.execute-api.ap-south-1.amazonaws.com/dev"
-export API_KEY="ipEAfuCnkF9EBP8Ne2Lc2E0WtUPSLVt9tntIbMib"
+export API_KEY="YOUR_API_KEY_HERE"
+
+# For authenticated endpoints
+export TEST_EMAIL="test@example.com"
+export TEST_PASSWORD="SecurePassword123!"
 ```
 
 ## Most Common API Tests
@@ -227,4 +231,75 @@ GST_MONTHLY, GST_2MONTHLY, GST_6MONTHLY,
 PAYE, PAYE_LARGE,
 PROVISIONAL_TAX, PROVISIONAL_TAX_RATIO, PROVISIONAL_TAX_AIM,
 IR3, FBT_QUARTERLY, FBT_ANNUAL, KIWISAVER
+```
+
+## Secure Authentication (httpOnly Cookies)
+
+### Quick Auth Flow
+```bash
+# 1. Register
+curl -c cookies.txt -X POST "${API_URL}/v1/auth/register" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"'${TEST_EMAIL}'","password":"'${TEST_PASSWORD}'","companyName":"Test Co"}'
+
+# 2. Login and get CSRF token
+CSRF_TOKEN=$(curl -b cookies.txt -c cookies.txt -X POST "${API_URL}/v1/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"'${TEST_EMAIL}'","password":"'${TEST_PASSWORD}'"}' | jq -r '.csrfToken')
+
+# 3. Get JWT from cookies
+JWT_TOKEN=$(cat cookies.txt | grep id_token | awk '{print $7}')
+
+# 4. Create API key
+API_KEY=$(curl -X POST "${API_URL}/v1/auth/api-keys" \
+  -H "Authorization: Bearer ${JWT_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"My API Key","expiresIn":90}' | jq -r '.apiKey')
+
+echo "Your API Key: $API_KEY"
+
+# 5. Logout
+curl -b cookies.txt -c cookies.txt -X POST "${API_URL}/v1/auth/logout" \
+  -H "X-CSRF-Token: $CSRF_TOKEN"
+
+# Clean up
+rm -f cookies.txt
+```
+
+### API Key Management
+```bash
+# List your API keys
+curl -X GET "${API_URL}/v1/auth/api-keys" \
+  -H "Authorization: Bearer ${JWT_TOKEN}" | jq '.apiKeys[] | {id, name, keyPrefix, usageCount, lastUsed}'
+
+# Delete API key
+curl -X DELETE "${API_URL}/v1/auth/api-keys/KEY_ID_HERE" \
+  -H "Authorization: Bearer ${JWT_TOKEN}"
+```
+
+## Native Solution Monitoring
+
+### Check API Key Usage
+```bash
+# Get API key usage stats
+aws dynamodb get-item \
+  --table-name complical-api-keys-dev \
+  --key '{"id":{"S":"YOUR_KEY_ID"}}' \
+  --region ap-south-1 | jq '.Item | {usageCount: .usageCount.N, lastUsed: .lastUsed.S}'
+
+# Check hourly aggregates
+aws dynamodb query \
+  --table-name complical-api-usage-dev \
+  --key-condition-expression "PK = :pk AND begins_with(SK, :sk)" \
+  --expression-attribute-values '{":pk":{"S":"USER#'${TEST_EMAIL}'"},":sk":{"S":"AGGREGATE#"}}' \
+  --region ap-south-1 | jq '.Items[] | {hour: .SK.S, requests: .requests.N}'
+```
+
+### View Access Logs
+```bash
+# Recent API access logs
+aws logs tail /aws/apigateway/complical-dev --since 5m --region ap-south-1
+
+# Usage processor logs
+aws logs tail /aws/lambda/complical-usage-processor-dev --since 5m --region ap-south-1
 ```
