@@ -314,11 +314,18 @@ aws dynamodb get-item \
   --region ap-south-1 | jq '.Item | {usageCount: .usageCount.N, lastUsed: .lastUsed.S}'
 ```
 
-## Latest Session Update (2025-06-26 Night)
+## Latest Session Update (2025-06-27)
+
+### Native Solution Implementation Complete
+- ✅ Implemented API Gateway Access Logging + DynamoDB TTL solution
+- ✅ Fixed simplified endpoint authorization (wildcard policies)
+- ✅ Fixed frontend authentication (httpOnly cookies + idToken hybrid)
+- ✅ Usage tracking now working (async via CloudWatch Logs)
+- ✅ All infrastructure managed via CDK (no manual changes needed)
 
 ### Comprehensive Australian Data Loading
 - Loaded 82 new Australian compliance deadlines (51 + 31)
-- Total Australian deadlines now: 94 (was 12)
+- Total Australian deadlines now: 110 (was 12)
 - Created scripts: 
   - `/packages/infrastructure/scripts/load-comprehensive-au-data.js` (Federal + NSW/VIC/QLD)
   - `/packages/infrastructure/scripts/load-remaining-states-payroll.js` (SA/WA/TAS/NT/ACT)

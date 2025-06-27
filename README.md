@@ -31,6 +31,8 @@ We handle the painful, ongoing work of sourcing, verifying, and maintaining this
 *   **Web Scraping:** Playwright (headless browser) + Cheerio (HTML parsing)
 *   **Testing:** Vitest with AWS SDK mocks
 *   **Database Access:** DynamoDB DocumentClient with type-safe wrappers
+*   **Authentication:** API Keys with SHA-256 hashing + JWT tokens via Cognito
+*   **Usage Tracking:** API Gateway Access Logs + Async Lambda processing
 
 ### Frontend (Developer Portal)
 *   **Framework:** Next.js 14 with App Router
@@ -39,7 +41,33 @@ We handle the painful, ongoing work of sourcing, verifying, and maintaining this
 *   **API Client:** Auto-generated from OpenAPI specification
 *   **Deployment:** Vercel or AWS Amplify Hosting
 
-## 4. Architectural Principles
+## 4. Quick Start
+
+```bash
+# 1. Register
+curl -X POST "https://api.complical.com/v1/auth/register" \
+  -H "Content-Type: application/json" \
+  -d '{"email": "you@example.com", "password": "SecurePass123!", "companyName": "Your Co"}'
+
+# 2. Login and get token
+curl -X POST "https://api.complical.com/v1/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{"email": "you@example.com", "password": "SecurePass123!"}'
+
+# 3. Create API key (use idToken from login)
+curl -X POST "https://api.complical.com/v1/auth/api-keys" \
+  -H "Authorization: Bearer YOUR_ID_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Production Key"}'
+
+# 4. Use the API
+curl -X GET "https://api.complical.com/v1/au/ato/deadlines" \
+  -H "x-api-key: YOUR_API_KEY"
+```
+
+See [API Quick Start Guide](./API_QUICKSTART.md) for detailed instructions.
+
+## 5. Architectural Principles
 
 This project is built on a foundation of modern cloud architecture designed for scalability, reliability, and low operational cost.
 
