@@ -84,7 +84,6 @@ export const handler: APIGatewayRequestAuthorizerHandler = async (event) => {
     // Pass key metadata as context for access logging
     // Use wildcard resource to allow all methods
     const arnParts = event.methodArn.split('/');
-    const apiId = arnParts[0].split(':').pop(); // Get API ID from ARN
     const stage = arnParts[1];
     const wildcardResource = `${arnParts[0]}/${stage}/*/*`;
     

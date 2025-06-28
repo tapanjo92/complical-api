@@ -1,6 +1,6 @@
 import { CloudWatchLogsDecodedData, CloudWatchLogsHandler } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, UpdateCommand, GetCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import * as zlib from 'zlib';
 import { promisify } from 'util';
 
@@ -220,13 +220,7 @@ export const handler: CloudWatchLogsHandler = async (event) => {
     }
 
     console.log('Successfully processed all log events');
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ 
-        message: 'Processed successfully',
-        eventsProcessed: logData.logEvents.length,
-      }),
-    };
+    // CloudWatchLogsHandler expects void return
 
   } catch (error) {
     console.error('Failed to process CloudWatch logs:', error);

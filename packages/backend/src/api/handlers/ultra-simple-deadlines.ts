@@ -2,6 +2,7 @@ import { APIGatewayProxyHandler } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand } from '@aws-sdk/lib-dynamodb';
 import { z } from 'zod';
+import { CATEGORY_MAPPINGS } from '../../utils/category-mappings';
 
 // Initialize DynamoDB client
 const dynamodb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
@@ -17,36 +18,8 @@ const pathParamsSchema = z.object({
 // Query parameter schema for filtering
 const queryParamsSchema = z.object({
   type: z.string().optional(),
-  category: z.enum(['tax', 'payroll', 'compliance', 'super', 'other']).optional(),
+  category: z.enum(['tax', 'payroll', 'compliance', 'super', 'property', 'vehicle', 'industry', 'insurance', 'emergency']).optional(),
 }).optional();
-
-// Category mappings - which types belong to which category
-const CATEGORY_MAPPINGS: Record<string, string[]> = {
-  tax: [
-    'BAS_QUARTERLY', 'BAS_MONTHLY', 'GST_ANNUAL', 'INCOME_TAX_INDIVIDUAL', 
-    'INCOME_TAX_COMPANY', 'FBT', 'PAYG_INSTALMENTS_QUARTERLY', 'PAYG_INSTALMENTS_MONTHLY',
-    'TPAR', 'GST_MONTHLY', 'GST_TWO_MONTHLY', 'GST_SIX_MONTHLY', 
-    'INCOME_TAX_RETURN', 'COMPANY_TAX_RETURN', 'FBT_QUARTERLY', 'FBT_ANNUAL'
-  ],
-  payroll: [
-    'PAYG_WITHHOLDING_MONTHLY', 'PAYG_WITHHOLDING_QUARTERLY', 'STP_FINALISATION',
-    'PAYROLL_TAX_NSW', 'PAYROLL_TAX_VIC', 'PAYROLL_TAX_QLD', 'PAYROLL_TAX_SA',
-    'PAYROLL_TAX_WA', 'PAYROLL_TAX_TAS', 'PAYROLL_TAX_NT', 'PAYROLL_TAX_ACT',
-    'PAYE', 'EMPLOYER_DEDUCTIONS'
-  ],
-  compliance: [
-    'ANNUAL_COMPANY_REVIEW', 'WORKERS_COMP_NSW', 'WORKERS_COMP_VIC', 
-    'WORKERS_COMP_QLD', 'WORKERS_COMP_SA', 'WORKERS_COMP_WA', 
-    'WORKERS_COMP_TAS', 'WORKERS_COMP_NT', 'WORKERS_COMP_ACT'
-  ],
-  super: [
-    'SUPER_GUARANTEE', 'KIWISAVER'
-  ],
-  other: [
-    'LAND_TAX_NSW', 'LAND_TAX_VIC', 'LAND_TAX_QLD', 'LAND_TAX_SA',
-    'LAND_TAX_WA', 'LAND_TAX_TAS', 'LAND_TAX_ACT', 'PROVISIONAL_TAX', 'RWT'
-  ]
-};
 
 export const handler: APIGatewayProxyHandler = async (event) => {
   console.log('Ultra-simple deadlines handler invoked:', event.pathParameters);

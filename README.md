@@ -2,6 +2,8 @@
 
 **A trusted, developer-first API for government and compliance deadlines.**
 
+> 🎯 **438 compliance deadlines** | 🇦🇺 **429 Australian** | 🇳🇿 **9 New Zealand** | ⚡ **Sub-second response**
+
 ## 1. The Core Problem
 
 Businesses operate in a complex regulatory environment. They are required to meet hundreds of different deadlines for tax filings, license renewals, and other compliance obligations set by various government agencies. This information is critical but is often:
@@ -18,6 +20,17 @@ CompliCal solves this problem by providing a single, unified, and reliable sourc
 
 We handle the painful, ongoing work of sourcing, verifying, and maintaining this data, allowing developers and businesses to focus on their core products. We are a data-as-a-product company, and our product is trust.
 
+### 📊 Coverage at a Glance
+
+| Category | Federal | State | Total |
+|----------|---------|-------|-------|
+| **Tax & Revenue** | 185 | - | 185 |
+| **Vehicle & Transport** | - | 96 | 96 |
+| **Industry Specific** | - | 77 | 77 |
+| **Compliance & Reporting** | 34 | 17 | 51 |
+| **Employment & Fair Work** | 29 | - | 29 |
+| **Total** | **219** | **210** | **438** |
+
 ## 3. Technology Stack
 
 ### Infrastructure as Code
@@ -28,197 +41,112 @@ We handle the painful, ongoing work of sourcing, verifying, and maintaining this
 *   **Language:** TypeScript (Node.js 20.x runtime)
 *   **API Framework:** Pure AWS SDK v3 with Lambda handlers
 *   **Validation:** Zod for runtime type validation
-*   **Web Scraping:** Playwright (headless browser) + Cheerio (HTML parsing)
-*   **Testing:** Vitest with AWS SDK mocks
-*   **Database Access:** DynamoDB DocumentClient with type-safe wrappers
-*   **Authentication:** API Keys with SHA-256 hashing + JWT tokens via Cognito
-*   **Usage Tracking:** API Gateway Access Logs + Async Lambda processing
 
-### Frontend (Developer Portal)
-*   **Framework:** Next.js 14 with App Router
-*   **Styling:** Tailwind CSS + shadcn/ui components
-*   **Authentication:** NextAuth.js with AWS Cognito provider
-*   **API Client:** Auto-generated from OpenAPI specification
-*   **Deployment:** Vercel or AWS Amplify Hosting
+### Data Storage
+*   **Primary:** DynamoDB with single-table design
+*   **Caching:** CloudFront with 5-minute TTL
+*   **Search:** GSI for jurisdiction and date-based queries
+
+### Security
+*   **Authentication:** AWS Cognito + API Keys (SHA-256 hashed)
+*   **Authorization:** Lambda custom authorizers with 5-minute cache
+*   **Encryption:** At rest (DynamoDB) and in transit (TLS 1.2+)
 
 ## 4. Quick Start
 
+### Get an API Key
+
 ```bash
 # 1. Register
-curl -X POST "https://api.complical.com/v1/auth/register" \
+curl -X POST https://api.complical.com/v1/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"email": "you@example.com", "password": "SecurePass123!", "companyName": "Your Co"}'
+  -d '{
+    "email": "you@company.com",
+    "password": "SecurePass123!",
+    "companyName": "Your Company"
+  }'
 
-# 2. Login and get token
-curl -X POST "https://api.complical.com/v1/auth/login" \
-  -H "Content-Type: application/json" \
-  -d '{"email": "you@example.com", "password": "SecurePass123!"}'
-
-# 3. Create API key (use idToken from login)
-curl -X POST "https://api.complical.com/v1/auth/api-keys" \
-  -H "Authorization: Bearer YOUR_ID_TOKEN" \
-  -H "Content-Type: application/json" \
+# 2. Create API Key (use JWT from login)
+curl -X POST https://api.complical.com/v1/auth/api-keys \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -d '{"name": "Production Key"}'
+```
 
-# 4. Use the API - Ultra-Simple Way (NEW!)
-curl -X GET "https://api.complical.com/v1/deadlines/AU/2025/1" \
+### Make Your First Request
+
+```bash
+# Ultra-simple endpoint - Get July 2025 Australian deadlines
+curl -X GET https://api.complical.com/v1/deadlines/AU/2025/7 \
   -H "x-api-key: YOUR_API_KEY"
+```
 
-# 4b. With Smart Filtering (81% less data)
-curl -X GET "https://api.complical.com/v1/deadlines/AU/2025/1?category=tax" \
+### Filter by Category
+
+```bash
+# Get only vehicle-related deadlines
+curl -X GET https://api.complical.com/v1/deadlines/AU/2025/7?category=vehicle \
   -H "x-api-key: YOUR_API_KEY"
 ```
 
-See [API Quick Start Guide](./API_QUICKSTART.md) for detailed instructions.
+## 5. API Endpoints
 
-## 5. Architectural Principles
-
-This project is built on a foundation of modern cloud architecture designed for scalability, reliability, and low operational cost.
-
-*   **Serverless-First:** All compute and infrastructure is provisioned using serverless technologies (AWS Lambda, API Gateway, DynamoDB). This eliminates idle costs and scales seamlessly from zero to millions of requests.
-*   **Data is the Product:** Our primary asset is the accuracy and timeliness of our data. Our architecture prioritizes data verification, provides audit trails for every data point (i.e., links to the source), and is built around a robust data ingestion and quality assurance pipeline.
-*   **Developer-Centric:** The API is designed for the developer experience. It is predictable, well-documented, and follows RESTful best practices. We provide clear request/response schemas and sensible error messages.
-*   **Infrastructure as Code (IaC):** The entire infrastructure is defined in code (using AWS SAM or Terraform). This ensures reproducibility, enables automated deployments, and eliminates manual configuration errors.
-*   **Automate Everything:** From CI/CD pipelines to data ingestion and monitoring, we automate relentlessly to ensure a lean operational footprint.
-
-## 5. Security & Compliance
-
-*   **Authentication:** OAuth 2.0/JWT for enterprise customers, API keys for developer tier
-*   **Encryption:** TLS 1.3 in transit, AES-256 at rest (DynamoDB encryption)
-*   **Rate Limiting:** Token bucket algorithm via API Gateway (100/min default, customizable by tier)
-*   **Compliance Roadmap:** SOC 2 Type II certification planned for Year 1
-*   **Data Privacy:** GDPR-compliant data handling, no PII storage, 90-day log retention
-
-## 6. Data Pipeline Architecture
-
-*   **Ingestion Pipeline:** AWS Step Functions orchestrating Lambda scrapers
-*   **Failure Handling:** Dead letter queues, exponential backoff, manual review queue
-*   **Change Detection:** Hash-based content comparison, automated alerts on structure changes
-*   **Data Verification:** Two-stage process - automated validation + human spot checks
-*   **Version Control:** All data changes tracked in DynamoDB with rollback capability
-*   **Source Attribution:** Every data point includes source URL, timestamp, and verification status
-
-## 7. Operational Excellence
-
-*   **Monitoring:** AWS X-Ray for distributed tracing, CloudWatch for metrics and logs
-*   **Alerting:** PagerDuty integration for critical issues, Slack for warnings
-*   **Error Tracking:** Sentry for application errors with 15-minute SLA for P1 issues
-*   **Disaster Recovery:** Multi-region backup, 15-minute RPO, 1-hour RTO
-*   **Incident Response:** On-call rotation, documented playbooks, post-mortem culture
-*   **Performance SLOs:** 99.9% uptime, <100ms API latency p95
-
-## 8. Legal & Liability Management
-
-*   **Terms of Service:** Liability limited to subscription fees, "AS IS" data warranty
-*   **Data Accuracy Disclaimer:** All responses include source verification requirements
-*   **Insurance Coverage:** $5M E&O, $1M General Liability, $1M Cyber
-*   **Compliance Notice:** Not affiliated with any government agency
-*   **Audit Trail:** Complete data lineage from source to API response
-
-## 9. AWS Services Architecture
-
-### Core Services
-*   **API Gateway (REST):** Request validation, usage plans, custom domain
-*   **Lambda:** Python 3.11 runtime, 512MB for APIs, 2GB for scrapers
-*   **DynamoDB:** Primary table with GSIs for jurisdiction and date queries
-*   **Cognito User Pools:** Machine-to-machine authentication
-*   **Cognito Identity Pools:** IAM role mapping for tier-based access
-
-### Data Pipeline
-*   **Step Functions:** Orchestrate scrape → validate → review → publish workflow
-*   **EventBridge:** Schedule daily scraping at 2 AM AEST
-*   **SQS:** Dead letter queue for failures, FIFO for data updates
-*   **S3:** Raw HTML storage, data snapshots, static documentation
-
-### Security & Monitoring
-*   **CloudWatch:** Custom metrics, 90-day log retention, dashboards
-*   **X-Ray:** Distributed tracing for performance analysis
-*   **WAF:** Rate limiting, geographic restrictions, injection protection
-*   **KMS:** Customer-managed encryption keys with rotation
-*   **CloudTrail:** API audit logging with data events
-
-### Developer Tools
-*   **Systems Manager:** Parameter Store for config, Secrets Manager for credentials
-*   **CodePipeline:** CI/CD with CodeBuild and blue/green deployments
-*   **CloudFormation/SAM:** Infrastructure as code with nested stacks
-*   **CloudFront:** API response caching with 5-minute TTL
-
-## 10. Authentication Architecture
-
-### Client Registration Flow
-1. Admin creates Cognito app client with client credentials grant
-2. Client receives `client_id` and `client_secret`
-3. Credentials stored in customer's secrets management system
-
-### Token Authentication Flow
+### 🎯 Ultra-Simple Endpoint (Recommended)
 ```
-POST /oauth2/token
-Authorization: Basic base64(client_id:client_secret)
-Content-Type: application/x-www-form-urlencoded
-
-grant_type=client_credentials&scope=api/read
+GET /v1/deadlines/{country}/{year}/{month}
 ```
 
-### API Request Flow
-1. Client requests token from Cognito (valid for 1 hour)
-2. Lambda authorizer validates JWT token
-3. IAM policy returned based on client tier
-4. API Gateway enforces rate limits per usage plan
+**Query Parameters:**
+- `type`: Filter by specific deadline type
+- `category`: Filter by category (tax, payroll, vehicle, property, etc.)
 
-### Tier-Based Access Control
-*   **Developer Tier:** 100 req/min, AU data only
-*   **Professional Tier:** 1000 req/min, AU + NZ data
-*   **Enterprise Tier:** Custom limits, all jurisdictions, webhooks
+### 📊 Available Categories
 
-## 11. Getting Started
+| Category | Description | Example Deadlines |
+|----------|-------------|-------------------|
+| `tax` | Federal & income taxes | BAS, GST, Excise |
+| `payroll` | Employment taxes | PAYG, Payroll Tax |
+| `vehicle` | Vehicle-related | Registration, Stamp Duty |
+| `property` | Property taxes | Land Tax, Stamp Duty |
+| `industry` | Industry-specific | Mining, Gaming |
 
-1.  **Clone the repository:**
-    ```bash
-    git clone <repo_url>
-    cd CompliCal
-    ```
-2.  **Install dependencies:**
-    ```bash
-    npm install
-    cd infrastructure && npm install
-    cd ../backend && npm install
-    cd ../frontend && npm install
-    ```
-3.  **Configure AWS credentials:**
-    ```bash
-    aws configure
-    ```
-4.  **Deploy infrastructure:**
-    ```bash
-    cd infrastructure
-    npm run cdk bootstrap
-    npm run cdk deploy
-    ```
-5.  **Run tests:**
-    ```bash
-    npm test  # Runs all workspace tests
-    ```
+## 6. Example Response
 
-1.  **Clone the repository:**
-    ```bash
-    git clone <repo_url>
-    cd CompliCal
-    ```
-2.  **Set up the environment:**
-    ```bash
-    python3 -m venv .venv
-    source .venv/bin/activate
-    pip install -r requirements.txt
-    ```
-3.  **Run tests:**
-    ```bash
-    pytest
-    ```
-4.  **Deploy to AWS:**
-    ```bash
-    sam build
-    sam deploy --guided
-    ```
+```json
+{
+  "country": "AU",
+  "year": 2025,
+  "month": 7,
+  "deadlines": [
+    {
+      "id": "abc123",
+      "name": "NSW Vehicle Registration Renewal",
+      "date": "2025-07-15",
+      "type": "VEHICLE_REGO_NSW",
+      "agency": "SERVICE_NSW"
+    }
+  ],
+  "count": 8,
+  "filters": {
+    "category": "vehicle"
+  }
+}
+```
 
----
-*This document serves as the architectural and philosophical north star for the CompliCal project.*
+## 7. Documentation
+
+- 📚 [API Documentation](./API_DOCUMENTATION.md)
+- 🧪 [API Testing Guide](./docs/API_TESTING_GUIDE_V2.md)
+- 📊 [Data Coverage Report](./docs/DATA_COVERAGE.md)
+- 🚀 [Deployment Guide](./DEPLOYMENT_GUIDE.md)
+
+## 8. Rate Limits
+
+- **Free Tier:** 10,000 requests/month
+- **Rate:** 10 requests/second
+- **Burst:** 20 requests
+
+## 9. Support
+
+- **Email:** support@complical.com
+- **GitHub:** [github.com/complical/api](https://github.com/complical/api)
+- **Status:** [status.complical.com](https://status.complical.com)

@@ -2,7 +2,6 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { z } from 'zod';
-import { DeadlineSchema, Deadline } from '../../types/deadline.js';
 
 const client = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(client);
@@ -38,13 +37,15 @@ const COUNTRY_MAPPING: Record<string, string> = {
 };
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
-  const headers = {
+  const baseHeaders = {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type,X-API-Key,Authorization',
-    'X-API-Version': 'v1',
-    'X-Warning': event.queryStringParameters?.api_key ? 'Using API key in URL is deprecated. Please use X-API-Key header instead.' : undefined
+    'X-API-Version': 'v1'
   };
+  
+  const warning = event.queryStringParameters?.api_key ? 'Using API key in URL is deprecated. Please use X-API-Key header instead.' : undefined;
+  const headers = warning ? { ...baseHeaders, 'X-Warning': warning } : baseHeaders;
 
   try {
     // Parse query parameters
