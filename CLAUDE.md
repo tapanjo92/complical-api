@@ -243,9 +243,9 @@ curl -c cookies.txt -X POST https://lyd1qoxc01.execute-api.ap-south-1.amazonaws.
 - **Flexible Filtering**: By year, month, type, or custom date range
 - **Pagination**: Offset-based for simplified endpoint, token-based for traditional
 
-### Data Coverage (438 Total)
-- **Australia (429)**: Comprehensive federal + all states/territories
-  - Federal: 193 (ATO, ASIC, Excise, Fair Work, Other)
+### Data Coverage (430 Total - Deduplicated)
+- **Australia (421)**: Comprehensive federal + all states/territories
+  - Federal: 185 (ATO, ASIC, Excise, Fair Work, Other)
   - State Payroll Tax: 50 (100% coverage)
   - State Land Tax: 10 (7 states, NT exempt)
   - State Workers Comp: 6 (all states)
@@ -254,6 +254,7 @@ curl -c cookies.txt -X POST https://lyd1qoxc01.execute-api.ap-south-1.amazonaws.
   - Mining & Gaming: 24 (quarterly royalties, monthly gaming tax)
   - Other State Taxes: 26 (emergency levies, foreign surcharges, etc.)
 - **New Zealand (9)**: GST, PAYE, Provisional Tax, IR3, FBT, KiwiSaver
+- **Data Quality**: ✅ Deduplicated on June 28, 2025 (removed 8 duplicates)
 
 ### Security Testing Progress
 ✅ **Authentication & Authorization**
